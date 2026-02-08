@@ -9,12 +9,11 @@ import {
     Card,
     CardContent,
     Stack,
-    Divider,
-    Link,
-    Paper,
     Grid,
 } from '@mui/material';
 import SchoolIcon from '@mui/icons-material/School';
+import PersonIcon from '@mui/icons-material/Person';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import GroupIcon from '@mui/icons-material/Group';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
@@ -22,7 +21,8 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 export default function LandingPage() {
     const router = useRouter();
 
-    const onLogin = () => router.push('/login');
+    const onUserLogin = () => router.push('/login');
+    const onAdminLogin = () => router.push('/admin/login');
 
     const features = [
         { icon: SchoolIcon, title: 'Academic Excellence', description: 'Access courses, assignments, and grades' },
@@ -68,11 +68,45 @@ export default function LandingPage() {
                                 Nextora
                             </Typography>
                         </Stack>
+
+                        {/* Header Login Buttons */}
+                        <Stack direction="row" spacing={2}>
+                            <Button
+                                variant="outlined"
+                                startIcon={<PersonIcon />}
+                                onClick={onUserLogin}
+                                sx={{
+                                    borderRadius: 2,
+                                    borderColor: '#2563EB',
+                                    color: '#2563EB',
+                                    '&:hover': {
+                                        borderColor: '#1D4ED8',
+                                        bgcolor: 'rgba(37, 99, 235, 0.04)',
+                                    },
+                                }}
+                            >
+                                User Login
+                            </Button>
+                            <Button
+                                variant="contained"
+                                startIcon={<AdminPanelSettingsIcon />}
+                                onClick={onAdminLogin}
+                                sx={{
+                                    borderRadius: 2,
+                                    background: 'linear-gradient(90deg, #7C3AED 0%, #9333EA 100%)',
+                                    '&:hover': {
+                                        background: 'linear-gradient(90deg, #6D28D9 0%, #7E22CE 100%)',
+                                    },
+                                }}
+                            >
+                                Admin Login
+                            </Button>
+                        </Stack>
                     </Stack>
                 </Box>
 
                 {/* Hero Section */}
-                <Box sx={{ py: { xs: 8, lg: 14 } }}>
+                <Box sx={{ py: { xs: 8, lg: 12 } }}>
                     <Grid container spacing={6} alignItems="center">
                         {/* Left Content */}
                         <Grid size={{ xs: 12, lg: 6 }}>
@@ -108,36 +142,122 @@ export default function LandingPage() {
                                     Access courses, collaborate with peers, and excel in your academic journey.
                                 </Typography>
 
-                                {/* CTA Buttons */}
-                                <Stack
-                                    direction={{ xs: 'column', sm: 'row' }}
-                                    spacing={2}
-                                    justifyContent={{ xs: 'center', lg: 'flex-start' }}
-                                >
-                                    <Button
-                                        variant="contained"
-                                        size="large"
-                                        onClick={onLogin}
-                                        sx={{
-                                            px: 4,
-                                            py: 1.5,
-                                            background: 'linear-gradient(90deg, #2563EB 0%, #7C3AED 100%)',
-                                            borderRadius: 3,
-                                            fontWeight: 600,
-                                            fontSize: '1rem',
-                                            '&:hover': {
-                                                background: 'linear-gradient(90deg, #1D4ED8 0%, #6D28D9 100%)',
-                                                transform: 'scale(1.02)',
-                                            },
-                                            transition: 'all 0.2s',
-                                        }}
-                                    >
-                                        Login
-                                    </Button>
-                                </Stack>
+                                {/* Login Cards */}
+                                <Grid container spacing={3} sx={{ mb: 4 }}>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Card
+                                            sx={{
+                                                borderRadius: 4,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s ease',
+                                                border: '2px solid transparent',
+                                                '&:hover': {
+                                                    transform: 'translateY(-4px)',
+                                                    boxShadow: '0 12px 40px rgba(37, 99, 235, 0.15)',
+                                                    borderColor: '#2563EB',
+                                                },
+                                            }}
+                                            onClick={onUserLogin}
+                                        >
+                                            <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                                                <Box
+                                                    sx={{
+                                                        width: 64,
+                                                        height: 64,
+                                                        borderRadius: 3,
+                                                        background: 'linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        mx: 'auto',
+                                                        mb: 2,
+                                                    }}
+                                                >
+                                                    <PersonIcon sx={{ color: 'white', fontSize: 32 }} />
+                                                </Box>
+                                                <Typography variant="h6" fontWeight={600} gutterBottom>
+                                                    Student / Staff
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                                    Access your courses, events, and campus services
+                                                </Typography>
+                                                <Button
+                                                    variant="contained"
+                                                    fullWidth
+                                                    sx={{
+                                                        background: 'linear-gradient(90deg, #2563EB 0%, #3B82F6 100%)',
+                                                        borderRadius: 2,
+                                                        py: 1.2,
+                                                        fontWeight: 600,
+                                                        '&:hover': {
+                                                            background: 'linear-gradient(90deg, #1D4ED8 0%, #2563EB 100%)',
+                                                        },
+                                                    }}
+                                                >
+                                                    User Login
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Card
+                                            sx={{
+                                                borderRadius: 4,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s ease',
+                                                border: '2px solid transparent',
+                                                '&:hover': {
+                                                    transform: 'translateY(-4px)',
+                                                    boxShadow: '0 12px 40px rgba(124, 58, 237, 0.15)',
+                                                    borderColor: '#7C3AED',
+                                                },
+                                            }}
+                                            onClick={onAdminLogin}
+                                        >
+                                            <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                                                <Box
+                                                    sx={{
+                                                        width: 64,
+                                                        height: 64,
+                                                        borderRadius: 3,
+                                                        background: 'linear-gradient(135deg, #7C3AED 0%, #9333EA 100%)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        mx: 'auto',
+                                                        mb: 2,
+                                                    }}
+                                                >
+                                                    <AdminPanelSettingsIcon sx={{ color: 'white', fontSize: 32 }} />
+                                                </Box>
+                                                <Typography variant="h6" fontWeight={600} gutterBottom>
+                                                    Administrator
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                                    Manage users, content, and system settings
+                                                </Typography>
+                                                <Button
+                                                    variant="contained"
+                                                    fullWidth
+                                                    sx={{
+                                                        background: 'linear-gradient(90deg, #7C3AED 0%, #9333EA 100%)',
+                                                        borderRadius: 2,
+                                                        py: 1.2,
+                                                        fontWeight: 600,
+                                                        '&:hover': {
+                                                            background: 'linear-gradient(90deg, #6D28D9 0%, #7C3AED 100%)',
+                                                        },
+                                                    }}
+                                                >
+                                                    Admin Login
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                </Grid>
 
                                 {/* Stats */}
-                                <Box sx={{ mt: 6, pt: 4, borderTop: 1, borderColor: 'divider' }}>
+                                <Box sx={{ pt: 4, borderTop: 1, borderColor: 'divider' }}>
                                     <Grid container spacing={3}>
                                         <Grid size={{ xs: 4 }}>
                                             <Typography variant="h4" color="primary" fontWeight={700}>
@@ -148,11 +268,7 @@ export default function LandingPage() {
                                             </Typography>
                                         </Grid>
                                         <Grid size={{ xs: 4 }}>
-                                            <Typography
-                                                variant="h4"
-                                                fontWeight={700}
-                                                sx={{ color: '#7C3AED' }}
-                                            >
+                                            <Typography variant="h4" fontWeight={700} sx={{ color: '#7C3AED' }}>
                                                 500+
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
@@ -198,91 +314,39 @@ export default function LandingPage() {
                                         objectFit: 'cover',
                                     }}
                                 />
-
-                                {/* Floating Card */}
-                                <Paper
-                                    elevation={6}
-                                    sx={{
-                                        position: 'absolute',
-                                        bottom: -24,
-                                        left: -24,
-                                        p: 2,
-                                        borderRadius: 4,
-                                        maxWidth: 200,
-                                    }}
-                                >
-                                    <Stack direction="row" alignItems="center" spacing={1.5}>
-                                        <Box
-                                            sx={{
-                                                width: 40,
-                                                height: 40,
-                                                bgcolor: 'success.light',
-                                                borderRadius: 2,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                            }}
-                                        >
-                                            <EmojiEventsIcon sx={{ color: 'success.main' }} />
-                                        </Box>
-                                        <Box>
-                                            <Typography variant="subtitle2" fontWeight={600}>
-                                                4.8/5.0
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                Student Rating
-                                            </Typography>
-                                        </Box>
-                                    </Stack>
-                                </Paper>
                             </Box>
                         </Grid>
                     </Grid>
                 </Box>
 
                 {/* Features Section */}
-                <Box sx={{ pb: 10 }}>
-                    <Typography
-                        variant="h4"
-                        align="center"
-                        fontWeight={700}
-                        sx={{ mb: 6 }}
-                    >
+                <Box sx={{ py: 8 }}>
+                    <Typography variant="h4" fontWeight={700} textAlign="center" sx={{ mb: 6 }}>
                         Why Choose Nextora?
                     </Typography>
                     <Grid container spacing={3}>
-                        {features.map((feature) => {
+                        {features.map((feature, index) => {
                             const Icon = feature.icon;
                             return (
-                                <Grid size={{ xs: 12, md: 6, lg: 3 }} key={feature.title}>
-                                    <Card
-                                        sx={{
-                                            height: '100%',
-                                            borderRadius: 4,
-                                            transition: 'all 0.2s',
-                                            '&:hover': {
-                                                boxShadow: 6,
-                                                borderColor: 'primary.light',
-                                            },
-                                        }}
-                                        variant="outlined"
-                                    >
-                                        <CardContent sx={{ p: 3 }}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
+                                    <Card sx={{ height: '100%', borderRadius: 4, textAlign: 'center', p: 2 }}>
+                                        <CardContent>
                                             <Box
                                                 sx={{
-                                                    width: 48,
-                                                    height: 48,
-                                                    background: 'linear-gradient(135deg, #DBEAFE 0%, #EDE9FE 100%)',
+                                                    width: 56,
+                                                    height: 56,
                                                     borderRadius: 3,
+                                                    background: 'linear-gradient(135deg, #EBF5FF 0%, #F5F3FF 100%)',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
+                                                    mx: 'auto',
                                                     mb: 2,
                                                 }}
                                             >
-                                                <Icon sx={{ color: 'primary.main' }} />
+                                                <Icon sx={{ color: '#2563EB', fontSize: 28 }} />
                                             </Box>
-                                            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                                            <Typography variant="h6" fontWeight={600} gutterBottom>
                                                 {feature.title}
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
@@ -297,32 +361,10 @@ export default function LandingPage() {
                 </Box>
 
                 {/* Footer */}
-                <Divider />
-                <Box
-                    component="footer"
-                    sx={{
-                        py: 4,
-                        display: 'flex',
-                        flexDirection: { xs: 'column', md: 'row' },
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 2,
-                    }}
-                >
+                <Box component="footer" sx={{ py: 4, borderTop: 1, borderColor: 'divider', textAlign: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
                         © 2026 Nextora LMS. All rights reserved.
                     </Typography>
-                    <Stack direction="row" spacing={3}>
-                        <Link href="#" underline="hover" color="text.secondary" variant="body2">
-                            Privacy Policy
-                        </Link>
-                        <Link href="#" underline="hover" color="text.secondary" variant="body2">
-                            Terms of Service
-                        </Link>
-                        <Link href="#" underline="hover" color="text.secondary" variant="body2">
-                            Contact Support
-                        </Link>
-                    </Stack>
                 </Box>
             </Container>
         </Box>
