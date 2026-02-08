@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import {
     Box,
     Drawer,
@@ -27,7 +28,6 @@ import { motion } from 'framer-motion';
 import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import SchoolIcon from '@mui/icons-material/School';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import KeyboardCommandKeyIcon from '@mui/icons-material/KeyboardCommandKey';
@@ -110,14 +110,19 @@ export default function DashboardLayout({
                         width: 44,
                         height: 44,
                         borderRadius: 2.5,
-                        background: branding.gradient,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(96, 165, 250, 0.3)',
+                        overflow: 'hidden',
                     }}
                 >
-                    <SchoolIcon sx={{ color: 'white', fontSize: 26 }} />
+                    <Image
+                        src="/assets/logos/nextora.png"
+                        alt="Nextora Logo"
+                        width={44}
+                        height={44}
+                        style={{ objectFit: 'contain' }}
+                    />
                 </Box>
                 <Box>
                     <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em', lineHeight: 1.2 }}>

@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 
 // Constants (Note: Can't import from constants/ in Edge runtime, so defined inline)
 const AUTH_ROUTES = ['/login', '/admin/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
-const PUBLIC_ROUTES = ['/', ...AUTH_ROUTES, '/forgot-password/verify', '/forgot-password/reset', '/forgot-password/success'];
+const PUBLIC_ROUTES = ['/', ...AUTH_ROUTES, '/forgot-password/verify', '/forgot-password/reset', '/forgot-password/success', '/offline'];
 
 // Role-based route access configuration
 const ROUTE_ROLE_MAP: Record<string, string[]> = {
