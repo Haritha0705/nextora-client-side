@@ -24,24 +24,54 @@ export function PageHeader({
     const router = useRouter();
 
     return (
-        <Box sx={{ mb: 4 }}>
+        <Box sx={{ mb: { xs: 3, lg: 4 } }}>
             {showBackButton && (
-                <IconButton onClick={() => router.push(backHref)} sx={{ mb: 2 }}>
+                <IconButton
+                    onClick={() => router.push(backHref)}
+                    sx={{
+                        mb: 2,
+                        color: 'text.secondary',
+                        '&:hover': { bgcolor: 'action.hover' },
+                    }}
+                >
                     <ArrowBackIcon />
                 </IconButton>
             )}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    justifyContent: 'space-between',
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    gap: 2,
+                }}
+            >
                 <Box>
-                    <Typography variant="h4" fontWeight={700}>
+                    <Typography
+                        variant="h1"
+                        sx={{
+                            mb: subtitle ? 1 : 0,
+                            fontSize: { xs: '1.5rem', sm: '1.875rem', lg: '2rem' },
+                            fontWeight: 700,
+                        }}
+                    >
                         {title}
                     </Typography>
                     {subtitle && (
-                        <Typography color="text.secondary">
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                        >
                             {subtitle}
                         </Typography>
                     )}
                 </Box>
-                {action}
+                {action && (
+                    <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+                        {action}
+                    </Box>
+                )}
             </Box>
         </Box>
     );

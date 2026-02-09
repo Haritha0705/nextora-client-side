@@ -12,7 +12,7 @@ export interface DashboardLayoutProps {
 
 export function DashboardLayout({
     children,
-    bgcolor = 'grey.50',
+    bgcolor = 'background.default',
     sx
 }: DashboardLayoutProps) {
     return (
@@ -21,7 +21,7 @@ export function DashboardLayout({
                 component="main"
                 sx={{
                     flexGrow: 1,
-                    p: 3,
+                    p: { xs: 2, sm: 3, lg: 4 },
                     bgcolor,
                 }}
             >

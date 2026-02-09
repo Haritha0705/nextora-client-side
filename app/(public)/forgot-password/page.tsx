@@ -1,84 +1,85 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Typography, Link } from '@mui/material';
-import LockResetIcon from '@mui/icons-material/LockReset';
+import { Box, Typography, Container } from '@mui/material';
 import { useToast } from '@/components/common';
-import { LoginLayout, LoginCard, ForgotPasswordForm, SecurityAlert } from '@/components/auth';
-import { forgotPassword } from '@/features/auth/services';
+import { ForgotPasswordModal } from '@/components/auth';
+import { forgotPassword, verifyOtp, resendOtp, resetPassword } from '@/features/auth/services';
 
 export default function ForgotPasswordPage() {
     const router = useRouter();
     const { showToast } = useToast();
-    const [isLoading, setIsLoading] = useState(false);
+    const [modalOpen, setModalOpen] = useState(true);
 
-    const handleSubmit = async (email: string) => {
-        setIsLoading(true);
-        try {
-            // Call actual auth service
-            const response = await forgotPassword({ email });
+    // Redirect to login when modal closes
+    useEffect(() => {
+        if (!modalOpen) {
+            router.push('/login');
+        }
+    }, [modalOpen, router]);
 
-            // Store email in session for display on next page
-            sessionStorage.setItem('resetEmail', email);
+    // Forgot password modal handlers
+    const handleSendEmail = async (email: string) => {
+        const response = await forgotPassword({ email });
+        if (!response.success) {
+            throw new Error(response.message || 'Failed to send email');
+        }
+        showToast('success', 'Email Sent', 'Verification code sent to your email');
+    };
 
-            // Always show generic message to prevent account enumeration
-            showToast('success', 'Email Sent', response.message);
+    const handleVerifyOtp = async (email: string, otp: string) => {
+        const response = await verifyOtp({ email, otp });
+        if (!response.verified) {
+            throw new Error(response.message || 'Invalid verification code');
+        }
+        return { token: response.token };
+    };
 
-            // Navigate to OTP verification page
-            router.push('/forgot-password/verify');
-        } catch (error) {
-            // Even on error, show generic message for security
-            showToast('info', 'Check Your Email', 'If an account exists, you\'ll receive a reset link.');
-            sessionStorage.setItem('resetEmail', email);
-            router.push('/forgot-password/verify');
-        } finally {
-            setIsLoading(false);
+    const handleResendOtp = async (email: string) => {
+        const response = await resendOtp({ email });
+        showToast('success', 'Code Sent', response.message);
+    };
+
+    const handleResetPassword = async (token: string, password: string) => {
+        const response = await resetPassword({ token, password, confirmPassword: password });
+        if (!response.success) {
+            throw new Error(response.message || 'Failed to reset password');
         }
     };
 
-    const formFooter = (
-        <Typography variant="body2" color="text.secondary">
-            Remember your password?{' '}
-            <Link
-                component="button"
-                type="button"
-                variant="body2"
-                onClick={() => router.push('/login')}
-                underline="hover"
-                fontWeight={600}
-            >
-                Sign in
-            </Link>
-        </Typography>
-    );
+    const handleComplete = () => {
+        showToast('success', 'Password Reset', 'Your password has been reset successfully');
+        router.push('/login');
+    };
 
     return (
-        <LoginLayout
-            onBack={() => router.push('/login')}
-            backgroundGradient="linear-gradient(135deg, #EBF5FF 0%, #FFFFFF 50%, #F5F3FF 100%)"
+        <Box
+            sx={{
+                minHeight: '100vh',
+                background: 'linear-gradient(135deg, #EBF5FF 0%, #FFFFFF 50%, #F5F3FF 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}
         >
-            <LoginCard
-                title="Forgot Password?"
-                subtitle="No worries, we'll send you reset instructions"
-                headerGradient="linear-gradient(90deg, #2563EB 0%, #7C3AED 100%)"
-                headerIcon={<LockResetIcon sx={{ fontSize: 32, color: 'white' }} />}
-                footer={formFooter}
-            >
-                <ForgotPasswordForm
-                    emailLabel="Email Address *"
-                    emailPlaceholder="your.email@university.edu"
-                    description="Enter your email address and we'll send you a verification code to reset your password."
-                    submitButtonText="Send Verification Code"
-                    onSubmit={handleSubmit}
-                    isLoading={isLoading}
-                />
-            </LoginCard>
+            <Container maxWidth="sm">
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                    <Typography variant="h5" color="text.secondary" sx={{ opacity: 0.7 }}>
+                        Password Recovery
+                    </Typography>
+                </Box>
+            </Container>
 
-            <SecurityAlert
-                sx={{ mt: 3 }}
-                message="For your protection, we'll only send reset instructions to registered accounts. This helps keep your information secure."
+            <ForgotPasswordModal
+                open={modalOpen}
+                onClose={() => setModalOpen(false)}
+                onSendEmail={handleSendEmail}
+                onVerifyOtp={handleVerifyOtp}
+                onResendOtp={handleResendOtp}
+                onResetPassword={handleResetPassword}
+                onComplete={handleComplete}
             />
-        </LoginLayout>
+        </Box>
     );
 }

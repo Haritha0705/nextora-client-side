@@ -1,29 +1,30 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { ROLES, mapLegacyRole, ROLE_LABELS } from '@/constants/roles';
 import { useToast } from '@/components/common';
 import { useAuth } from '@/hooks/useAuth';
-import { LoginLayout, LoginCard, LoginForm, UserLoginFooter, RoleOption } from '@/components/auth';
+import { LoginLayout, LoginForm, ForgotPasswordModal } from '@/components/auth';
+import { forgotPassword, verifyOtp, resendOtp, resetPassword } from '@/features/auth/services';
 
 // Only normal user roles (not admin/super-admin)
-const USER_ROLE_OPTIONS: RoleOption[] = [
+const USER_ROLE_OPTIONS = [
     { value: ROLES.STUDENT, label: ROLE_LABELS[ROLES.STUDENT] },
     { value: ROLES.ACADEMIC_STAFF, label: ROLE_LABELS[ROLES.ACADEMIC_STAFF] },
     { value: ROLES.NON_ACADEMIC_STAFF, label: ROLE_LABELS[ROLES.NON_ACADEMIC_STAFF] },
 ];
 
 export default function LoginPage() {
-    const router = useRouter();
     const { login, isLoading } = useAuth();
     const { showToast } = useToast();
+    const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
 
-    const handleSubmit = async (data: { email: string; password: string; role: string }) => {
+    const handleSubmit = async (data: { email: string; password: string; role?: string }) => {
         try {
             await login({
                 email: data.email,
                 password: data.password,
-                role: mapLegacyRole(data.role),
+                role: mapLegacyRole(data.role || ROLES.STUDENT),
             });
             showToast('success', 'Login Successful', 'Welcome back to Nextora!');
         } catch (error) {
@@ -32,32 +33,75 @@ export default function LoginPage() {
         }
     };
 
+    // Forgot password modal handlers
+    const handleSendEmail = async (email: string) => {
+        const response = await forgotPassword({ email });
+        if (!response.success) {
+            throw new Error(response.message || 'Failed to send email');
+        }
+        showToast('success', 'Email Sent', 'Verification code sent to your email');
+    };
+
+    const handleVerifyOtp = async (email: string, otp: string) => {
+        const response = await verifyOtp({ email, otp });
+        if (!response.verified) {
+            throw new Error(response.message || 'Invalid verification code');
+        }
+        return { token: response.token };
+    };
+
+    const handleResendOtp = async (email: string) => {
+        const response = await resendOtp({ email });
+        showToast('success', 'Code Sent', response.message);
+    };
+
+    const handleResetPassword = async (token: string, password: string) => {
+        const response = await resetPassword({ token, password, confirmPassword: password });
+        if (!response.success) {
+            throw new Error(response.message || 'Failed to reset password');
+        }
+    };
+
+    const handleForgotPasswordComplete = () => {
+        showToast('success', 'Password Reset', 'Your password has been reset successfully');
+    };
+
     return (
         <LoginLayout
-            onBack={() => router.push('/')}
-            backgroundGradient="linear-gradient(135deg, #EBF5FF 0%, #FFFFFF 50%, #F5F3FF 100%)"
-            footerText={<UserLoginFooter />}
+            brandTitle="Nextora"
+            heroTitle={
+                <>
+                    Empowering Education.
+                    <br />
+                    Simplifying Management.
+                </>
+            }
+            heroSubtitle="A comprehensive campus management platform designed for students, staff, and administrators."
+            footerText="Trusted by universities worldwide"
         >
-            <LoginCard
-                title="Welcome Back"
+            <LoginForm
+                title="Welcome back"
                 subtitle="Sign in to continue to Nextora"
-                headerGradient="linear-gradient(90deg, #2563EB 0%, #7C3AED 100%)"
-            >
-                <LoginForm
-                    roleOptions={USER_ROLE_OPTIONS}
-                    roleLabel="Select Role *"
-                    emailLabel="Email *"
-                    emailPlaceholder="your.email@university.edu"
-                    submitButtonText="Sign In"
-                    submitButtonGradient="linear-gradient(90deg, #2563EB 0%, #7C3AED 100%)"
-                    submitButtonHoverGradient="linear-gradient(90deg, #1D4ED8 0%, #6D28D9 100%)"
-                    showRememberMe={true}
-                    showForgotPassword={true}
-                    onForgotPassword={() => router.push('/forgot-password')}
-                    onSubmit={handleSubmit}
-                    isLoading={isLoading}
-                />
-            </LoginCard>
+                roleOptions={USER_ROLE_OPTIONS}
+                showRoleSelector={true}
+                showRememberMe={true}
+                showForgotPassword={true}
+                showDemoCredentials={true}
+                onForgotPassword={() => setForgotPasswordOpen(true)}
+                onSubmit={handleSubmit}
+                isLoading={isLoading}
+            />
+
+            {/* Forgot Password Modal */}
+            <ForgotPasswordModal
+                open={forgotPasswordOpen}
+                onClose={() => setForgotPasswordOpen(false)}
+                onSendEmail={handleSendEmail}
+                onVerifyOtp={handleVerifyOtp}
+                onResendOtp={handleResendOtp}
+                onResetPassword={handleResetPassword}
+                onComplete={handleForgotPasswordComplete}
+            />
         </LoginLayout>
     );
 }
