@@ -18,29 +18,32 @@ import {
     useTheme,
     useMediaQuery,
     Avatar,
-    Badge,
     Tooltip,
     Divider,
     Menu,
     MenuItem,
+    Popover,
+    Backdrop,
 } from '@mui/material';
-import { motion } from 'framer-motion';
 import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
-import NotificationsIcon from '@mui/icons-material/Notifications';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import KeyboardCommandKeyIcon from '@mui/icons-material/KeyboardCommandKey';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import CloseIcon from '@mui/icons-material/Close';
 import { AuthProvider } from '@/providers/AuthProvider';
+import { PushNotificationProvider } from '@/contexts/PushNotificationContext';
+import { NotificationBell, NotificationList } from '@/components/notifications';
 import { useAuthStore } from '@/store';
 import { getNavigationByRole, getBrandingByRole } from '@/features/dashboard';
 import { ROLES } from '@/constants/roles';
 
-const drawerWidth = 280;
-
-const MotionBox = motion.create(Box);
+const DRAWER_WIDTH = 256;
+const DRAWER_COLLAPSED_WIDTH = 64;
 
 export default function DashboardLayout({
                                             children,
@@ -51,9 +54,13 @@ export default function DashboardLayout({
     const router = useRouter();
     const pathname = usePathname();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(false);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
     const profileMenuOpen = Boolean(anchorEl);
+    const notificationPopoverOpen = Boolean(notificationAnchorEl);
 
     // Get user from auth store
     const { user, logout: storeLogout } = useAuthStore();
@@ -66,6 +73,8 @@ export default function DashboardLayout({
     const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
     const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
     const handleProfileMenuClose = () => setAnchorEl(null);
+    const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => setNotificationAnchorEl(event.currentTarget);
+    const handleNotificationClose = () => setNotificationAnchorEl(null);
 
     const handleNavigation = (path: string) => {
         router.push(path);
@@ -102,192 +111,244 @@ export default function DashboardLayout({
     const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
     const drawer = (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Logo Section */}
-            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Box
-                    sx={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 2.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                    }}
-                >
-                    <Image
-                        src="/assets/logos/nextora.png"
-                        alt="Nextora Logo"
-                        width={44}
-                        height={44}
-                        style={{ objectFit: 'contain' }}
-                    />
-                </Box>
-                <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-                        {branding.title}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', fontWeight: 500 }}>
-                        {branding.subtitle}
-                    </Typography>
-                </Box>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', bgcolor: 'background.paper' }}>
+            {/* Logo Section - 64px height to match header */}
+            <Box
+                sx={{
+                    height: 64,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: isCollapsed ? 'center' : 'space-between',
+                    px: isCollapsed ? 1 : 2,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                }}
+            >
+                {!isCollapsed ? (
+                    <>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box
+                                sx={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <Image
+                                    src="/assets/logos/nextora.png"
+                                    alt="Nextora Logo"
+                                    width={32}
+                                    height={32}
+                                    style={{ objectFit: 'contain' }}
+                                />
+                            </Box>
+                            <Typography sx={{ fontWeight: 600, color: 'text.primary', whiteSpace: 'nowrap' }}>
+                                {branding.title}
+                            </Typography>
+                        </Box>
+                        {/* Desktop collapse button */}
+                        {isDesktop && (
+                            <IconButton
+                                onClick={() => setIsCollapsed(true)}
+                                size="small"
+                            >
+                                <ChevronLeftIcon fontSize="small" />
+                            </IconButton>
+                        )}
+                        {/* Mobile close button */}
+                        {!isDesktop && (
+                            <IconButton
+                                onClick={() => setMobileOpen(false)}
+                                size="small"
+                            >
+                                <CloseIcon fontSize="small" />
+                            </IconButton>
+                        )}
+                    </>
+                ) : (
+                    <Box
+                        sx={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
+                        }}
+                    >
+                        <Image
+                            src="/assets/logos/nextora.png"
+                            alt="Nextora Logo"
+                            width={32}
+                            height={32}
+                            style={{ objectFit: 'contain' }}
+                        />
+                    </Box>
+                )}
             </Box>
 
-            <Divider sx={{ mx: 2, mb: 1 }} />
-
             {/* Navigation List */}
-            <Box sx={{ flex: 1, overflow: 'auto', px: 2, py: 1 }}>
+            <Box sx={{ flex: 1, overflow: 'auto', px: 1, py: 1.5 }}>
                 <List disablePadding>
                     {navigationItems.map((item) => {
                         const Icon = item.icon;
                         const active = isActive(item.path);
-                        return (
+
+                        const navButton = (
                             <ListItem key={item.id} disablePadding sx={{ mb: 0.5 }}>
-                                <MotionBox
-                                    initial={false}
-                                    animate={{ scale: active ? 1 : 1 }}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    sx={{ width: '100%' }}
+                                <ListItemButton
+                                    onClick={() => handleNavigation(item.path)}
+                                    sx={{
+                                        borderRadius: 1,
+                                        py: 1,
+                                        px: isCollapsed ? 1.5 : 2,
+                                        minHeight: 44,
+                                        justifyContent: isCollapsed ? 'center' : 'initial',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        bgcolor: active ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                                        color: active ? 'primary.main' : 'text.primary',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': {
+                                            bgcolor: active ? 'rgba(59, 130, 246, 0.15)' : 'action.hover',
+                                        },
+                                        '&::before': active ? {
+                                            content: '""',
+                                            position: 'absolute',
+                                            left: 0,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            width: 3,
+                                            height: 20,
+                                            borderRadius: '0 2px 2px 0',
+                                            bgcolor: 'primary.main',
+                                        } : {},
+                                    }}
                                 >
-                                    <ListItemButton
-                                        onClick={() => handleNavigation(item.path)}
+                                    <ListItemIcon
                                         sx={{
-                                            borderRadius: 2.5,
-                                            py: 1.25,
-                                            px: 2,
-                                            position: 'relative',
-                                            overflow: 'hidden',
-                                            bgcolor: active ? 'primary.main' : 'transparent',
-                                            color: active ? 'white' : 'text.primary',
-                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            '&:hover': {
-                                                bgcolor: active ? 'primary.dark' : 'action.hover',
-                                            },
-                                            '&::before': active ? {
-                                                content: '""',
-                                                position: 'absolute',
-                                                left: 0,
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                width: 4,
-                                                height: '60%',
-                                                borderRadius: '0 4px 4px 0',
-                                                bgcolor: 'white',
-                                            } : {},
+                                            color: active ? 'primary.main' : 'text.secondary',
+                                            minWidth: isCollapsed ? 0 : 40,
+                                            mr: isCollapsed ? 0 : 1,
+                                            justifyContent: 'center',
                                         }}
                                     >
-                                        <ListItemIcon sx={{ color: active ? 'white' : 'text.secondary', minWidth: 40 }}>
-                                            <Icon sx={{ fontSize: 22 }} />
-                                        </ListItemIcon>
-                                        <ListItemText
-                                            primary={item.label}
-                                            slotProps={{
-                                                primary: {
-                                                    fontWeight: active ? 600 : 500,
-                                                    fontSize: '0.875rem',
-                                                },
-                                            }}
-                                        />
-                                        {(item.badge ?? 0) > 0 && (
-                                            <Box
-                                                sx={{
-                                                    minWidth: 20,
-                                                    height: 20,
-                                                    borderRadius: 10,
-                                                    bgcolor: active ? 'rgba(255,255,255,0.2)' : 'primary.main',
-                                                    color: 'white',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    fontSize: '0.7rem',
-                                                    fontWeight: 700,
-                                                    px: 0.75,
+                                        <Icon sx={{ fontSize: 20 }} />
+                                    </ListItemIcon>
+                                    {!isCollapsed && (
+                                        <>
+                                            <ListItemText
+                                                primary={item.label}
+                                                slotProps={{
+                                                    primary: {
+                                                        fontWeight: active ? 500 : 400,
+                                                        fontSize: '0.875rem',
+                                                        color: active ? 'primary.main' : 'text.primary',
+                                                    },
                                                 }}
-                                            >
-                                                {(item.badge ?? 0) > 99 ? '99+' : item.badge}
-                                            </Box>
+                                            />
+                                            {(item.badge ?? 0) > 0 && (
+                                                <Box
+                                                    sx={{
+                                                        minWidth: 20,
+                                                        height: 20,
+                                                        borderRadius: 10,
+                                                        bgcolor: 'primary.main',
+                                                        color: 'white',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '0.7rem',
+                                                        fontWeight: 600,
+                                                        px: 0.75,
+                                                    }}
+                                                >
+                                                    {(item.badge ?? 0) > 99 ? '99+' : item.badge}
+                                                </Box>
+                                            )}
+                                            </>
                                         )}
                                     </ListItemButton>
-                                </MotionBox>
                             </ListItem>
+                        );
+
+                        return isCollapsed ? (
+                            <Tooltip key={item.id} title={item.label} placement="right" arrow>
+                                {navButton}
+                            </Tooltip>
+                        ) : (
+                            <React.Fragment key={item.id}>{navButton}</React.Fragment>
                         );
                     })}
                 </List>
             </Box>
 
-            {/* User Profile Section */}
-            <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+            {/* Expand Button (when collapsed) */}
+            {isCollapsed && isDesktop && (
+                <Box sx={{ position: 'absolute', bottom: 80, left: 0, right: 0, px: 1 }}>
+                    <IconButton
+                        onClick={() => setIsCollapsed(false)}
+                        sx={{ width: '100%' }}
+                    >
+                        <ChevronRightIcon fontSize="small" />
+                    </IconButton>
+                </Box>
+            )}
+
+            {/* Footer with Version */}
+            {!isCollapsed && (
                 <Box
-                    onClick={handleProfileMenuOpen}
                     sx={{
-                        p: 1.5,
-                        borderRadius: 2.5,
-                        bgcolor: 'action.hover',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.5,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        '&:hover': { bgcolor: 'action.selected' },
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        p: 2,
+                        borderTop: '1px solid',
+                        borderColor: 'divider',
                     }}
                 >
-                    <Avatar
-                        sx={{
-                            width: 40,
-                            height: 40,
-                            bgcolor: 'primary.main',
-                            fontWeight: 600,
-                            fontSize: '0.875rem',
-                        }}
-                    >
-                        {userData.initials}
-                    </Avatar>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
-                            variant="subtitle2"
-                            sx={{
-                                fontWeight: 600,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            {userData.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            {userData.role}
-                        </Typography>
-                    </Box>
+                    <Typography variant="caption" color="text.disabled">
+                        v1.0.0
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled" display="block" sx={{ mt: 0.5 }}>
+                        {branding.subtitle}
+                    </Typography>
                 </Box>
-            </Box>
+            )}
         </Box>
     );
 
     return (
         <AuthProvider>
+            <PushNotificationProvider>
             <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
                 {/* AppBar */}
                 <AppBar
                     position="fixed"
                     elevation={0}
                     sx={{
-                        width: { md: `calc(100% - ${drawerWidth}px)` },
-                        ml: { md: `${drawerWidth}px` },
-                        bgcolor: 'rgba(255, 255, 255, 0.8)',
-                        backdropFilter: 'blur(20px)',
+                        width: { md: `calc(100% - ${isCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH}px)` },
+                        ml: { md: `${isCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH}px` },
+                        transition: 'width 0.3s ease-in-out, margin-left 0.3s ease-in-out',
+                        bgcolor: 'background.paper',
                         borderBottom: '1px solid',
                         borderColor: 'divider',
                     }}
                 >
-                    <Toolbar sx={{ justifyContent: 'space-between', minHeight: { xs: 64, md: 72 } }}>
+                    <Toolbar sx={{ justifyContent: 'space-between', minHeight: 64 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             <IconButton
                                 aria-label="open drawer"
                                 edge="start"
                                 onClick={handleDrawerToggle}
-                                sx={{ display: { md: 'none' }, color: 'text.primary' }}
+                                sx={{ display: { md: 'none' } }}
                             >
                                 <MenuIcon />
                             </IconButton>
@@ -297,23 +358,29 @@ export default function DashboardLayout({
                                 sx={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    bgcolor: 'action.hover',
-                                    borderRadius: 3,
+                                    bgcolor: 'background.default',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    borderRadius: 1,
                                     px: 2,
                                     py: 1,
-                                    width: { xs: 180, sm: 280, md: 360 },
+                                    width: { xs: 180, sm: 280, md: 400 },
+                                    maxWidth: 400,
                                     transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        borderColor: 'action.hover',
+                                    },
                                     '&:focus-within': {
-                                        bgcolor: 'background.paper',
+                                        borderColor: 'primary.main',
                                         boxShadow: '0 0 0 2px rgba(59, 130, 246, 0.2)',
                                     },
                                 }}
                             >
-                                <SearchIcon sx={{ color: 'text.secondary', fontSize: 20, mr: 1 }} />
+                                <SearchIcon sx={{ color: 'text.disabled', fontSize: 20, mr: 1 }} />
                                 <Box
                                     component="input"
                                     type="text"
-                                    placeholder="Search anything..."
+                                    placeholder="Search..."
                                     sx={{
                                         border: 'none',
                                         outline: 'none',
@@ -322,7 +389,7 @@ export default function DashboardLayout({
                                         fontSize: '0.875rem',
                                         color: 'text.primary',
                                         '&::placeholder': {
-                                            color: 'text.secondary',
+                                            color: 'text.disabled',
                                             opacity: 1,
                                         },
                                     }}
@@ -346,38 +413,66 @@ export default function DashboardLayout({
                             </Box>
                         </Box>
 
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, lg: 2 } }}>
                             <Tooltip title="Help">
-                                <IconButton sx={{ color: 'text.secondary' }}>
+                                <IconButton>
                                     <HelpOutlineIcon sx={{ fontSize: 22 }} />
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Notifications">
-                                <IconButton>
-                                    <Badge badgeContent={3} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem' } }}>
-                                        <NotificationsIcon sx={{ color: 'text.secondary', fontSize: 22 }} />
-                                    </Badge>
-                                </IconButton>
+                                <Box component="span">
+                                    <NotificationBell onClick={handleNotificationOpen} />
+                                </Box>
                             </Tooltip>
-                            <Avatar
-                                sx={{
-                                    width: 38,
-                                    height: 38,
-                                    bgcolor: 'primary.main',
-                                    fontSize: '0.875rem',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    ml: 1,
-                                    transition: 'all 0.2s ease',
-                                    '&:hover': {
-                                        transform: 'scale(1.05)',
-                                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-                                    },
+                            <Popover
+                                open={notificationPopoverOpen}
+                                anchorEl={notificationAnchorEl}
+                                onClose={handleNotificationClose}
+                                anchorOrigin={{
+                                    vertical: 'bottom',
+                                    horizontal: 'right',
                                 }}
-                                onClick={handleProfileMenuOpen}
+                                transformOrigin={{
+                                    vertical: 'top',
+                                    horizontal: 'right',
+                                }}
+                                sx={{ mt: 1 }}
                             >
-                                {userData.initials}
-                            </Avatar>
+                                <Box sx={{ width: 360, maxWidth: '100vw' }}>
+                                    <NotificationList maxItems={10} />
+                                </Box>
+                            </Popover>
+
+                            {/* User Section with Divider */}
+                            <Divider orientation="vertical" flexItem sx={{ mx: { xs: 0.5, lg: 1 } }} />
+
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, lg: 1.5 } }}>
+                                <Box sx={{ textAlign: 'right', display: { xs: 'none', xl: 'block' } }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
+                                        {userData.name}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {userData.role}
+                                    </Typography>
+                                </Box>
+                                <Avatar
+                                    sx={{
+                                        width: { xs: 32, lg: 36 },
+                                        height: { xs: 32, lg: 36 },
+                                        bgcolor: 'primary.main',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': {
+                                            bgcolor: 'primary.dark',
+                                        },
+                                    }}
+                                    onClick={handleProfileMenuOpen}
+                                >
+                                    {userData.initials}
+                                </Avatar>
+                            </Box>
                         </Box>
                     </Toolbar>
                 </AppBar>
@@ -426,7 +521,14 @@ export default function DashboardLayout({
                 </Menu>
 
                 {/* Drawer */}
-                <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
+                <Box component="nav" sx={{ width: { md: isCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH }, flexShrink: { md: 0 }, transition: 'width 0.3s ease-in-out' }}>
+                    {/* Mobile Backdrop */}
+                    <Backdrop
+                        open={mobileOpen && !isDesktop}
+                        onClick={() => setMobileOpen(false)}
+                        sx={{ zIndex: (theme) => theme.zIndex.drawer - 1, display: { md: 'none' } }}
+                    />
+
                     {/* Mobile Drawer */}
                     <Drawer
                         variant="temporary"
@@ -437,7 +539,7 @@ export default function DashboardLayout({
                             display: { xs: 'block', md: 'none' },
                             '& .MuiDrawer-paper': {
                                 boxSizing: 'border-box',
-                                width: drawerWidth,
+                                width: DRAWER_WIDTH,
                                 borderRight: 'none',
                                 boxShadow: '4px 0 24px rgba(0,0,0,0.08)',
                             },
@@ -453,10 +555,12 @@ export default function DashboardLayout({
                             display: { xs: 'none', md: 'block' },
                             '& .MuiDrawer-paper': {
                                 boxSizing: 'border-box',
-                                width: drawerWidth,
+                                width: isCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH,
                                 borderRight: '1px solid',
                                 borderColor: 'divider',
                                 bgcolor: 'background.paper',
+                                transition: 'width 0.3s ease-in-out',
+                                overflowX: 'hidden',
                             },
                         }}
                         open
@@ -470,15 +574,17 @@ export default function DashboardLayout({
                     component="main"
                     sx={{
                         flexGrow: 1,
-                        p: { xs: 2, sm: 3 },
-                        width: { md: `calc(100% - ${drawerWidth}px)` },
-                        mt: { xs: '64px', md: '72px' },
-                        minHeight: { xs: 'calc(100vh - 64px)', md: 'calc(100vh - 72px)' },
+                        p: { xs: 2, sm: 3, lg: 4 },
+                        width: { md: `calc(100% - ${isCollapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH}px)` },
+                        mt: '64px',
+                        minHeight: 'calc(100vh - 64px)',
+                        transition: 'width 0.3s ease-in-out',
                     }}
                 >
                     {children}
                 </Box>
             </Box>
+            </PushNotificationProvider>
         </AuthProvider>
     );
 }

@@ -112,5 +112,7 @@
                 }
             ]
         }
-    ]
+    ],
+    "gcm_sender_id": "1085514613403",
+    "permissions": ["notifications"]
 }

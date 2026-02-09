@@ -16,3 +16,7 @@ export * from './auth';
 
 // PWA Components
 export * from './pwa';
+
+// Notification Components
+export * from './notifications';
+

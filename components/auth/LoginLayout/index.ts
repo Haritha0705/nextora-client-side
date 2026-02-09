@@ -1,2 +1,2 @@
-export { LoginLayout, UserLoginFooter, AdminLoginFooter, type LoginLayoutProps } from './LoginLayout';
+export { LoginLayout, type LoginLayoutProps } from './LoginLayout';
 

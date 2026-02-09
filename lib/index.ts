@@ -4,3 +4,4 @@ export * from './auth-session';
 export * from './permissions';
 export { env } from './env';
 export * from './utils';
+export * from './firebase';

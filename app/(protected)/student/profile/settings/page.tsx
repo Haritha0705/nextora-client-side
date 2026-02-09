@@ -31,6 +31,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import SecurityIcon from '@mui/icons-material/Security';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { PushSettings } from '@/components/notifications';
 
 const MotionCard = motion.create(Card);
 const MotionBox = motion.create(Box);
@@ -239,15 +240,8 @@ export default function ProfileSettingsPage() {
                                 }
                                 label="Email Notifications"
                             />
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={notifications.push}
-                                        onChange={handleNotificationChange('push')}
-                                    />
-                                }
-                                label="Push Notifications"
-                            />
+                            {/* Real Push Notifications with Firebase FCM */}
+                            <PushSettings compact />
                             <FormControlLabel
                                 control={
                                     <Switch
