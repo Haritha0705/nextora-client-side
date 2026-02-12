@@ -16,10 +16,11 @@ import {
 // Types
 // ============================================================================
 
-/** Password reset flow steps */
+// Password reset flow steps
+
 type ForgotPasswordStep = 'email' | 'verify' | 'reset' | 'success';
 
-/** Hook state interface */
+// Hook state interface
 interface ForgotPasswordState {
     email: string;
     resetToken: string;
@@ -68,7 +69,7 @@ export function useForgotPassword(): UseForgotPasswordReturn {
     const setLoading = (isLoading: boolean) => setState(prev => ({ ...prev, isLoading }));
     const setError = (error: string | null) => setState(prev => ({ ...prev, error }));
 
-    /** Initiates password reset by sending OTP to email */
+    //Initiates password reset by sending OTP to email
     const sendResetEmail = useCallback(async (email: string): Promise<boolean> => {
         setLoading(true);
         setError(null);
@@ -84,7 +85,8 @@ export function useForgotPassword(): UseForgotPasswordReturn {
         return true;
     }, []);
 
-    /** Submits new password */
+    // Submits new password
+
     const submitNewPassword = useCallback(async (password: string, confirmPassword: string): Promise<boolean> => {
         setLoading(true);
         setError(null);
@@ -109,7 +111,8 @@ export function useForgotPassword(): UseForgotPasswordReturn {
         }
     }, [state.resetToken]);
 
-    /** Validates a reset token (for link-based reset) */
+    // Validates a reset token (for link-based reset)
+
     const validateToken = useCallback(async (token: string): Promise<boolean> => {
         setLoading(true);
         setError(null);
@@ -136,7 +139,8 @@ export function useForgotPassword(): UseForgotPasswordReturn {
     const setStep = useCallback((step: ForgotPasswordStep) => setState(prev => ({ ...prev, step })), []);
     const clearError = useCallback(() => setError(null), []);
 
-    /** Resets the entire flow state */
+    // Resets the entire flow state
+
     const reset = useCallback(() => {
         setState(INITIAL_STATE);
         sessionStorage.removeItem(SESSION_KEYS.RESET_EMAIL);

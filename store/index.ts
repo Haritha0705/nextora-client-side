@@ -4,9 +4,6 @@
  * @module store
  */
 
-// Legacy Zustand store (for backward compatibility)
-export { useAuthStore } from './auth.store';
-
 // Redux imports
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import authReducer from '@/features/auth/authSlice';

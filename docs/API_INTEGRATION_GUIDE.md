@@ -736,7 +736,7 @@ The API client is already configured with:
 
 | File Type | Naming Convention | Example |
 |-----------|------------------|---------|
-| Types | `[feature].types.ts` | `user.types.ts` |
+| Types | `[feature].types.ts` | `student.types.ts` |
 | Endpoints | `[feature].endpoints.ts` | `user.endpoints.ts` |
 | Services | `[feature].services.ts` | `user.services.ts` |
 | Redux Slice | `[feature]Slice.ts` | `userSlice.ts` |

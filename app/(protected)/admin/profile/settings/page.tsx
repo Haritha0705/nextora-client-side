@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * Student Settings Page
+ * Admin Settings Page
  * Uses the unified settings component that works for all roles
  */
 
 import UnifiedSettingsPage from '@/components/profile/UnifiedSettingsPage';
 
-export default function StudentSettingsPage() {
+export default function AdminSettingsPage() {
     return <UnifiedSettingsPage />;
 }
 

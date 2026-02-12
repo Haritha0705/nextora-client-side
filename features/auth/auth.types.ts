@@ -1,13 +1,13 @@
 // Auth Types
 import { RoleType } from '@/constants';
 import { PermissionType } from '@/constants';
-// import { TokenType } from '@/types/jwt';
-// import {
-//     AcademicStaffRoleSpecificData,
-//     AdminRoleSpecificData,
-//     NonAcademicStaffRoleSpecificData,
-//     StudentRoleSpecificData, SuperAdminRoleSpecificData
-// } from "@/types/user";
+import { TokenType } from '@/types/jwt';
+import {
+    AcademicStaffRoleSpecificData,
+    AdminRoleSpecificData,
+    NonAcademicStaffRoleSpecificData,
+    StudentRoleSpecificData, SuperAdminRoleSpecificData
+} from "@/types/user";
 
 export interface AuthUser {
     id: string;
@@ -27,43 +27,19 @@ export interface LoginRequest {
 // Alias for backward compatibility
 export type LoginCredentials = LoginRequest;
 
-export interface AuthResponse {
+export interface LoginResponse {
     accessToken: string;
     refreshToken: string;
-    tokenType: string;
-    expiresIn: string | number;
-    // These fields can be at root level or nested in user object
-    userId?: string | number;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-    role?: RoleType;
-    userType?: string;
-    authorities?: PermissionType[];
-    user?: {
-        id: string;
-        email: string;
-        firstName: string;
-        lastName: string;
-        role: RoleType;
-        authorities: PermissionType[];
-        verified?: boolean;
-    };
+    tokenType: TokenType;
+    expiresIn: string;
+    userId: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: RoleType;
+    userType: string;
+    roleSpecificData : StudentRoleSpecificData | AcademicStaffRoleSpecificData | NonAcademicStaffRoleSpecificData | AdminRoleSpecificData | SuperAdminRoleSpecificData;
 }
-
-// export interface LoginResponse {
-//     accessToken: string;
-//     refreshToken: string;
-//     tokenType: TokenType;
-//     expiresIn: string;
-//     userId: number;
-//     email: string;
-//     firstName: string;
-//     lastName: string;
-//     role: RoleType;
-//     userType: string;
-//     roleSpecificData : StudentRoleSpecificData | AcademicStaffRoleSpecificData | NonAcademicStaffRoleSpecificData | AdminRoleSpecificData | SuperAdminRoleSpecificData;
-// }
 
 export interface ForgotPasswordRequest {
     email: string;
@@ -74,3 +50,21 @@ export interface ResetPasswordRequest {
     password: string;
     confirmPassword: string;
 }
+
+// AuthResponse type for mock API and similar use cases
+export interface AuthResponse {
+    accessToken: string;
+    refreshToken: string;
+    tokenType: string;
+    expiresIn: number;
+    user: {
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        role: RoleType;
+        authorities: PermissionType[];
+        verified: boolean;
+    };
+}
+

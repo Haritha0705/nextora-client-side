@@ -1,18 +1,10 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { AuthUser } from '@/features';
+import { getProfile } from './services';
+import { UserProfile } from './unified-user.types';
 
 // ============================================================================
 // Types
 // ============================================================================
-
-interface UserProfile extends AuthUser {
-    avatarUrl?: string;
-    phone?: string;
-    department?: string;
-    faculty?: string;
-    createdAt?: string;
-    updatedAt?: string;
-}
 
 interface UserState {
     profile: UserProfile | null;
@@ -37,19 +29,52 @@ const initialState: UserState = {
 // ============================================================================
 
 // Fetch user profile thunk
-export const fetchUserProfile = createAsyncThunk<UserProfile, string>(
+export const fetchUserProfile = createAsyncThunk<UserProfile, void>(
     'user/fetchUserProfile',
-    async (userId, { rejectWithValue }) => {
+    async (_, { rejectWithValue }) => {
         try {
-            // API call to fetch user profile
-            const response = await fetch(`/api/v1/users/${userId}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch user profile');
+            console.log('[UserSlice] Fetching user profile from API...');
+
+            // API call to fetch user profile - returns UserProfileResponse with data property
+            const response = await getProfile();
+
+            console.log('[UserSlice] API Response:', JSON.stringify(response, null, 2));
+
+            let profileData: UserProfile | null = null;
+
+            // Handle response with data wrapper
+            if (response && response.data) {
+                profileData = response.data;
             }
-            const data = await response.json();
-            return data as UserProfile;
+            // Handle direct response (no wrapper)
+            else if (response && typeof response === 'object' && 'email' in response) {
+                profileData = response as unknown as UserProfile;
+            }
+
+            if (!profileData) {
+                console.error('[UserSlice] Invalid response structure:', response);
+                throw new Error('Invalid response structure - no profile data found');
+            }
+
+            // Log role-specific data
+            console.log('[UserSlice] Profile loaded:', {
+                id: profileData.id,
+                email: profileData.email,
+                role: profileData.role,
+                hasRoleSpecificData: !!profileData.roleSpecificData,
+                roleSpecificDataKeys: profileData.roleSpecificData ? Object.keys(profileData.roleSpecificData) : [],
+            });
+
+            // Ensure roleSpecificData exists (even if empty object)
+            if (!profileData.roleSpecificData) {
+                console.warn('[UserSlice] No roleSpecificData in response, using empty object');
+                profileData = { ...profileData, roleSpecificData: {} as any };
+            }
+
+            return profileData;
         } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to fetch user';
+            console.error('[UserSlice] Error fetching profile:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to fetch user profile';
             return rejectWithValue(errorMessage);
         }
     }

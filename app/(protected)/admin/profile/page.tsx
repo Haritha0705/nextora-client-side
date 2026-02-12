@@ -1,13 +1,13 @@
 'use client';
 
 /**
- * Student Profile Page
+ * Admin Profile Page
  * Uses the unified profile component that works for all roles
  */
 
 import UnifiedProfilePage from '@/components/profile/UnifiedProfilePage';
 
-export default function StudentProfilePage() {
+export default function AdminProfilePage() {
     return <UnifiedProfilePage />;
 }
 

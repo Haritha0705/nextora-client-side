@@ -1,7 +1,6 @@
 // User Types
 import { STUDENT_SUB_ROLES } from '@/constants';
 
-
 // Main Role Types
 
 export interface StudentRoleSpecificData {

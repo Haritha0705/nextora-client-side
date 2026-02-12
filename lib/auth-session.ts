@@ -1,5 +1,5 @@
 // Auth Session Helper
-import { User } from '@/types';
+import { AuthUser } from '@/features/auth/auth.types';
 import { isTokenExpired, getUserFromToken } from './jwt';
 import { mapLegacyRole, RoleType, ROLES } from '@/constants';
 import { PermissionType } from '@/constants';
@@ -67,7 +67,7 @@ export function isAuthenticated(): boolean {
 /**
  * Get current user from stored token
  */
-export function getCurrentUser(): User | null {
+export function getCurrentUser(): AuthUser | null {
     const token = tokenStorage.getAccessToken();
     if (!token || isTokenExpired(token)) return null;
 
@@ -125,7 +125,7 @@ export function isSuperAdmin(): boolean {
 /**
  * Session event emitter for auth state changes
  */
-type AuthEventCallback = (user: User | null) => void;
+type AuthEventCallback = (user: AuthUser | null) => void;
 const authEventListeners: AuthEventCallback[] = [];
 
 export const authEvents = {
@@ -137,7 +137,7 @@ export const authEvents = {
         };
     },
 
-    emit: (user: User | null) => {
+    emit: (user: AuthUser | null) => {
         authEventListeners.forEach(callback => callback(user));
     },
 };
