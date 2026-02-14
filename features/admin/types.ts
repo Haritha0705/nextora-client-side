@@ -30,6 +30,7 @@ export interface User {
     role: RoleType;
     userType: string;
     active: boolean;
+    status: StatusType;
 }
 
 // Create user request
@@ -124,5 +125,42 @@ export interface UserFilterParams {
 export interface ActionResponse {
     success: boolean;
     message: string;
+}
+
+// Search users params
+export interface SearchUsersParams {
+    keyword: string;
+    page?: number;
+    size?: number;
+}
+
+// Filter users params
+export interface FilterUsersParams {
+    roles?: RoleType[];
+    statuses?: StatusType[];
+    page?: number;
+    size?: number;
+}
+
+// User stats response
+export interface UserStatsResponse {
+    success: boolean;
+    message: string;
+    data: UserStats;
+    timestamp: string;
+}
+
+export interface UserStats {
+    totalUsers: number;
+    activeUsers: number;
+    deactivatedUsers: number;
+    suspendedUsers: number;
+    deletedUsers: number;
+    passwordChangeRequiredUsers: number;
+    totalStudents: number;
+    totalAdmins: number;
+    totalSuperAdmins: number;
+    totalAcademicStaff: number;
+    totalNonAcademicStaff: number;
 }
 

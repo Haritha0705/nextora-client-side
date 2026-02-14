@@ -1,6 +1,35 @@
-export * from './admin.types';
 export * from './services';
-export * from './user-management.types';
+export * from './types';
+
+// Export admin slice actions, thunks, and selectors
+export {
+    default as adminReducer,
+    fetchUsers,
+    fetchUserStats,
+    setSearchQuery,
+    setRoleFilter,
+    setStatusFilter,
+    setCurrentPage,
+    setPageSize,
+    clearFilters,
+    clearError,
+    clearStatsError,
+    resetAdminState,
+    selectAdminUsers,
+    selectAdminTotalUsers,
+    selectAdminCurrentPage,
+    selectAdminPageSize,
+    selectAdminTotalPages,
+    selectAdminSearchQuery,
+    selectAdminRoleFilter,
+    selectAdminStatusFilter,
+    selectAdminStats,
+    selectAdminIsLoading,
+    selectAdminIsStatsLoading,
+    selectAdminError,
+    type AdminUsersState,
+} from './adminSlice';
+
 // Explicitly export from user-management.services to avoid conflicts with services.ts
 export {
     getAllUsers,
@@ -10,5 +39,8 @@ export {
     activateUser,
     deactivateUser,
     unlockUser,
+    searchUsers,
+    filterUsers,
+    getUserStats,
     ADMIN_USER_ENDPOINTS,
-} from './user-management.services';
+} from './services';

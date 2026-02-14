@@ -1,43 +1,127 @@
-// Admin Services - API calls for admin operations
-import { api } from '@/lib';
-import { PaginatedResponse, PaginationParams } from '../../types/api';
-import { AdminUserListItem, AdminUserFilters, CreateUserByAdminRequest, UpdateUserByAdminRequest, AdminStats } from './admin.types';
+/**
+ * Admin User Management Services
+ */
+import apiClient from '@/lib/api-client';
+import {
+    AllUsersResponse,
+    CreateUserRequest,
+    CreateUserResponse,
+    UpdateUserRequest,
+    UserFilterParams,
+    ActionResponse,
+    User,
+    SearchUsersParams,
+    FilterUsersParams,
+    UserStatsResponse,
+} from '@/features';
 
-const ADMIN_ENDPOINTS = {
-    USERS: '/admin/users',
-    USER_BY_ID: (id: string) => `/admin/users/${id}`,
-    STATS: '/admin/stats',
-    EVENTS: '/admin/events',
-    REPORTS: '/admin/reports',
+const ADMIN_USER_ENDPOINTS = {
+    USERS: '/admin/user',
+    USER_BY_ID: (id: number) => `/admin/user/${id}`,
+    ACTIVATE_USER: (id: number) => `/admin/user/${id}/activate`,
+    DEACTIVATE_USER: (id: number) => `/admin/user/${id}/deactivate`,
+    UNLOCK_USER: (id: number) => `/admin/user/${id}/unlock`,
+    SEARCH_USERS: '/admin/user/search',
+    FILTER_USERS: '/admin/user/filter',
+    USER_STATS: '/admin/user/stats',
 };
 
-export async function getUsers(params?: PaginationParams & AdminUserFilters): Promise<PaginatedResponse<AdminUserListItem>> {
+// Response type for single user operations
+interface UserResponse {
+    success: boolean;
+    message: string;
+    data: User;
+    timestamp: string;
+}
+
+// Get all users with pagination
+export async function getAllUsers(params: UserFilterParams = {}): Promise<AllUsersResponse> {
     const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.size) queryParams.append('size', params.size.toString());
-    if (params?.search) queryParams.append('search', params.search);
-    if (params?.role) queryParams.append('role', params.role);
-    if (params?.status) queryParams.append('status', params.status);
-    const url = `${ADMIN_ENDPOINTS.USERS}?${queryParams.toString()}`;
-    return api.get<PaginatedResponse<AdminUserListItem>>(url);
+    if (params.page !== undefined) queryParams.append('page', params.page.toString());
+    if (params.size) queryParams.append('size', params.size.toString());
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortDirection) queryParams.append('sortDirection', params.sortDirection);
+    const url = `${ADMIN_USER_ENDPOINTS.USERS}?${queryParams.toString()}`;
+    const response = await apiClient.get<AllUsersResponse>(url);
+    return response.data;
 }
 
-export async function getUserById(id: string): Promise<AdminUserListItem> {
-    return api.get<AdminUserListItem>(ADMIN_ENDPOINTS.USER_BY_ID(id));
+// Get user by ID
+export async function getUserById(id: number): Promise<UserResponse> {
+    const response = await apiClient.get<UserResponse>(ADMIN_USER_ENDPOINTS.USER_BY_ID(id));
+    return response.data;
 }
 
-export async function createUser(data: CreateUserByAdminRequest): Promise<AdminUserListItem> {
-    return api.post<AdminUserListItem>(ADMIN_ENDPOINTS.USERS, data);
+// Create new user
+export async function createUser(data: CreateUserRequest): Promise<CreateUserResponse> {
+    const response = await apiClient.post<CreateUserResponse>(ADMIN_USER_ENDPOINTS.USERS, data);
+    return response.data;
 }
 
-export async function updateUser(id: string, data: UpdateUserByAdminRequest): Promise<AdminUserListItem> {
-    return api.put<AdminUserListItem>(ADMIN_ENDPOINTS.USER_BY_ID(id), data);
+// Update user by ID with optional profile picture
+export async function updateUserById(id: number, data: UpdateUserRequest): Promise<UserResponse> {
+    const formData = new FormData();
+    if (data.firstName) formData.append('firstName', data.firstName);
+    if (data.lastName) formData.append('lastName', data.lastName);
+    if (data.phoneNumber) formData.append('phoneNumber', data.phoneNumber);
+    if (data.role) formData.append('role', data.role);
+    if (data.profilePicture) formData.append('profilePicture', data.profilePicture);
+    if (data.deleteProfilePicture) formData.append('deleteProfilePicture', 'true');
+    const response = await apiClient.put<UserResponse>(ADMIN_USER_ENDPOINTS.USER_BY_ID(id), formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
 }
 
-export async function deleteUser(id: string): Promise<void> {
-    await api.delete(ADMIN_ENDPOINTS.USER_BY_ID(id));
+// Activate user account
+export async function activateUser(id: number): Promise<ActionResponse> {
+    const response = await apiClient.patch<ActionResponse>(ADMIN_USER_ENDPOINTS.ACTIVATE_USER(id));
+    return response.data;
 }
 
-export async function getStats(): Promise<AdminStats> {
-    return api.get<AdminStats>(ADMIN_ENDPOINTS.STATS);
+// Deactivate user account
+export async function deactivateUser(id: number): Promise<ActionResponse> {
+    const response = await apiClient.patch<ActionResponse>(ADMIN_USER_ENDPOINTS.DEACTIVATE_USER(id));
+    return response.data;
 }
+
+// Unlock suspended user account
+export async function unlockUser(id: number): Promise<ActionResponse> {
+    const response = await apiClient.patch<ActionResponse>(ADMIN_USER_ENDPOINTS.UNLOCK_USER(id));
+    return response.data;
+}
+
+// Search users by keyword
+export async function searchUsers(params: SearchUsersParams): Promise<AllUsersResponse> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('keyword', params.keyword);
+    if (params.page !== undefined) queryParams.append('page', params.page.toString());
+    if (params.size) queryParams.append('size', params.size.toString());
+    const url = `${ADMIN_USER_ENDPOINTS.SEARCH_USERS}?${queryParams.toString()}`;
+    const response = await apiClient.get<AllUsersResponse>(url);
+    return response.data;
+}
+
+// Filter users by roles and statuses
+export async function filterUsers(params: FilterUsersParams): Promise<AllUsersResponse> {
+    const queryParams = new URLSearchParams();
+    if (params.roles && params.roles.length > 0) {
+        params.roles.forEach(role => queryParams.append('roles', role));
+    }
+    if (params.statuses && params.statuses.length > 0) {
+        params.statuses.forEach(status => queryParams.append('statuses', status));
+    }
+    if (params.page !== undefined) queryParams.append('page', params.page.toString());
+    if (params.size) queryParams.append('size', params.size.toString());
+    const url = `${ADMIN_USER_ENDPOINTS.FILTER_USERS}?${queryParams.toString()}`;
+    const response = await apiClient.get<AllUsersResponse>(url);
+    return response.data;
+}
+
+// Get user statistics
+export async function getUserStats(): Promise<UserStatsResponse> {
+    const response = await apiClient.get<UserStatsResponse>(ADMIN_USER_ENDPOINTS.USER_STATS);
+    return response.data;
+}
+
+export { ADMIN_USER_ENDPOINTS };
