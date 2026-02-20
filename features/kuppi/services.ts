@@ -26,6 +26,17 @@ import {
     // Stats Types
     KuppiApplicationStatsResponse,
     KuppiPlatformStatsResponse,
+    // Kuppi Student Types
+    KuppiStudentsResponse,
+    KuppiStudentDetailApiResponse,
+    KuppiStudentSearchByNameParams,
+    KuppiStudentSearchBySubjectParams,
+    // Review Types
+    KuppiReviewsResponse,
+    KuppiReviewDetailResponse,
+    CreateKuppiReviewRequest,
+    UpdateKuppiReviewRequest,
+    TutorResponseRequest,
     // Common Types
     KuppiActionResponse,
     KuppiPaginationParams,
@@ -33,6 +44,7 @@ import {
     KuppiDateRangeParams,
     ApplicationStatus,
 } from './types';
+import {AllUsersResponse, SUPER_ADMIN_ENDPOINTS} from "@/features";
 
 // ============================================================================
 // Endpoints
@@ -90,6 +102,29 @@ export const KUPPI_ENDPOINTS = {
     SUPER_ADMIN_REVOKE_ROLE: (studentId: number) => `/super-admin/kuppi/applications/revoke/${studentId}`,
     ADMIN_SESSION_PERMANENT: (id: number) => `/admin/kuppi/sessions/${id}/permanent`,
     ADMIN_NOTE_PERMANENT: (id: number) => `/admin/kuppi/notes/${id}/permanent`,
+
+    // Kuppi Students Endpoints
+    KUPPI_STUDENTS: '/kuppi/students',
+    KUPPI_STUDENT_BY_ID: (studentId: number) => `/kuppi/students/${studentId}`,
+    KUPPI_STUDENTS_SEARCH_BY_NAME: '/kuppi/students/search/name',
+    KUPPI_STUDENTS_SEARCH_BY_SUBJECT: '/kuppi/students/search/subject',
+    KUPPI_STUDENTS_BY_FACULTY: (faculty: string) => `/kuppi/students/faculty/${faculty}`,
+    KUPPI_STUDENTS_TOP_RATED: '/kuppi/students/top-rated',
+
+    // Review Endpoints (Student)
+    REVIEWS: '/kuppi/reviews',
+    REVIEW_BY_ID: (reviewId: number) => `/kuppi/reviews/${reviewId}`,
+    MY_REVIEWS: '/kuppi/reviews/my',
+    SESSION_REVIEWS: (sessionId: number) => `/kuppi/reviews/session/${sessionId}`,
+    TUTOR_REVIEWS: (tutorId: number) => `/kuppi/reviews/tutor/${tutorId}`,
+
+    // Review Endpoints (Tutor)
+    TUTOR_RESPONSE: (reviewId: number) => `/kuppi/reviews/${reviewId}/tutor-response`,
+    MY_HOSTED_REVIEWS: '/kuppi/reviews/my-hosted',
+
+    // Review Endpoints (Admin)
+    ADMIN_REVIEWS: '/admin/kuppi/reviews',
+    ADMIN_REVIEW_DELETE: (reviewId: number) => `/admin/kuppi/reviews/${reviewId}`,
 };
 
 // ============================================================================
@@ -424,6 +459,178 @@ export async function superAdminPermanentDeleteSession(id: number): Promise<Kupp
 
 export async function superAdminPermanentDeleteNote(id: number): Promise<KuppiActionResponse> {
     const response = await apiClient.delete<KuppiActionResponse>(KUPPI_ENDPOINTS.ADMIN_NOTE_PERMANENT(id));
+    return response.data;
+}
+
+// ============================================================================
+// Kuppi Students Services
+// ============================================================================
+
+/**
+ * Get all Kuppi students (paginated)
+ */
+export async function getAllKuppiStudents(params: KuppiPaginationParams = {}): Promise<KuppiStudentsResponse> {
+    const query = buildQueryParams(params);
+    const url = query ? `${KUPPI_ENDPOINTS.KUPPI_STUDENTS}?${query}` : KUPPI_ENDPOINTS.KUPPI_STUDENTS;
+    const response = await apiClient.get<KuppiStudentsResponse>(url);
+    return response.data;
+}
+
+/**
+ * Get Kuppi student details by ID
+ */
+export async function getKuppiStudentById(studentId: number): Promise<KuppiStudentDetailApiResponse> {
+    const response = await apiClient.get<KuppiStudentDetailApiResponse>(KUPPI_ENDPOINTS.KUPPI_STUDENT_BY_ID(studentId));
+    return response.data;
+}
+
+/**
+ * Search Kuppi students by name
+ */
+export async function searchKuppiStudentsByName(params: KuppiStudentSearchByNameParams): Promise<KuppiStudentsResponse> {
+    const query = buildQueryParams(params);
+    const response = await apiClient.get<KuppiStudentsResponse>(`${KUPPI_ENDPOINTS.KUPPI_STUDENTS_SEARCH_BY_NAME}?${query}`);
+    return response.data;
+}
+
+/**
+ * Search Kuppi students by subject
+ */
+export async function searchKuppiStudentsBySubject(params: KuppiStudentSearchBySubjectParams): Promise<KuppiStudentsResponse> {
+    const query = buildQueryParams(params);
+    const response = await apiClient.get<KuppiStudentsResponse>(`${KUPPI_ENDPOINTS.KUPPI_STUDENTS_SEARCH_BY_SUBJECT}?${query}`);
+    return response.data;
+}
+
+/**
+ * Get Kuppi students by faculty
+ */
+export async function getKuppiStudentsByFaculty(faculty: string, params: KuppiPaginationParams = {}): Promise<KuppiStudentsResponse> {
+    const query = buildQueryParams(params);
+    const url = query
+        ? `${KUPPI_ENDPOINTS.KUPPI_STUDENTS_BY_FACULTY(faculty)}?${query}`
+        : KUPPI_ENDPOINTS.KUPPI_STUDENTS_BY_FACULTY(faculty);
+    const response = await apiClient.get<KuppiStudentsResponse>(url);
+    return response.data;
+}
+
+/**
+ * Get top-rated Kuppi students
+ */
+export async function getTopRatedKuppiStudents(params: KuppiPaginationParams = {}): Promise<KuppiStudentsResponse> {
+    const query = buildQueryParams(params);
+    const url = query ? `${KUPPI_ENDPOINTS.KUPPI_STUDENTS_TOP_RATED}?${query}` : KUPPI_ENDPOINTS.KUPPI_STUDENTS_TOP_RATED;
+    const response = await apiClient.get<KuppiStudentsResponse>(url);
+    return response.data;
+}
+
+// ============================================================================
+// Review Services (Student)
+// ============================================================================
+
+/**
+ * Create a new review for a session
+ */
+export async function createReview(data: CreateKuppiReviewRequest): Promise<KuppiReviewDetailResponse> {
+    const response = await apiClient.post<KuppiReviewDetailResponse>(KUPPI_ENDPOINTS.REVIEWS, data);
+    return response.data;
+}
+
+/**
+ * Update an existing review
+ */
+export async function updateReview(reviewId: number, data: UpdateKuppiReviewRequest): Promise<KuppiReviewDetailResponse> {
+    const response = await apiClient.put<KuppiReviewDetailResponse>(KUPPI_ENDPOINTS.REVIEW_BY_ID(reviewId), data);
+    return response.data;
+}
+
+/**
+ * Delete a review
+ */
+export async function deleteReview(reviewId: number): Promise<KuppiActionResponse> {
+    const response = await apiClient.delete<KuppiActionResponse>(KUPPI_ENDPOINTS.REVIEW_BY_ID(reviewId));
+    return response.data;
+}
+
+/**
+ * Get review by ID
+ */
+export async function getReviewById(reviewId: number): Promise<KuppiReviewDetailResponse> {
+    const response = await apiClient.get<KuppiReviewDetailResponse>(KUPPI_ENDPOINTS.REVIEW_BY_ID(reviewId));
+    return response.data;
+}
+
+/**
+ * Get my reviews (reviews I've written)
+ */
+export async function getMyReviews(params: KuppiPaginationParams = {}): Promise<KuppiReviewsResponse> {
+    const query = buildQueryParams(params);
+    const url = query ? `${KUPPI_ENDPOINTS.MY_REVIEWS}?${query}` : KUPPI_ENDPOINTS.MY_REVIEWS;
+    const response = await apiClient.get<KuppiReviewsResponse>(url);
+    return response.data;
+}
+
+/**
+ * Get reviews for a specific session
+ */
+export async function getSessionReviews(sessionId: number, params: KuppiPaginationParams = {}): Promise<KuppiReviewsResponse> {
+    const query = buildQueryParams(params);
+    const url = query ? `${KUPPI_ENDPOINTS.SESSION_REVIEWS(sessionId)}?${query}` : KUPPI_ENDPOINTS.SESSION_REVIEWS(sessionId);
+    const response = await apiClient.get<KuppiReviewsResponse>(url);
+    return response.data;
+}
+
+/**
+ * Get reviews for a specific tutor
+ */
+export async function getTutorReviews(tutorId: number, params: KuppiPaginationParams = {}): Promise<KuppiReviewsResponse> {
+    const query = buildQueryParams(params);
+    const url = query ? `${KUPPI_ENDPOINTS.TUTOR_REVIEWS(tutorId)}?${query}` : KUPPI_ENDPOINTS.TUTOR_REVIEWS(tutorId);
+    const response = await apiClient.get<KuppiReviewsResponse>(url);
+    return response.data;
+}
+
+// ============================================================================
+// Review Services (Tutor)
+// ============================================================================
+
+/**
+ * Add tutor response to a review
+ */
+export async function addTutorResponse(reviewId: number, data: TutorResponseRequest): Promise<KuppiReviewDetailResponse> {
+    const response = await apiClient.post<KuppiReviewDetailResponse>(KUPPI_ENDPOINTS.TUTOR_RESPONSE(reviewId), data);
+    return response.data;
+}
+
+/**
+ * Get reviews for my hosted sessions
+ */
+export async function getMyHostedReviews(params: KuppiPaginationParams = {}): Promise<KuppiReviewsResponse> {
+    const query = buildQueryParams(params);
+    const url = query ? `${KUPPI_ENDPOINTS.MY_HOSTED_REVIEWS}?${query}` : KUPPI_ENDPOINTS.MY_HOSTED_REVIEWS;
+    const response = await apiClient.get<KuppiReviewsResponse>(url);
+    return response.data;
+}
+
+// ============================================================================
+// Review Services (Admin)
+// ============================================================================
+
+/**
+ * Get all reviews (admin)
+ */
+export async function adminGetAllReviews(params: KuppiPaginationParams = {}): Promise<KuppiReviewsResponse> {
+    const query = buildQueryParams(params);
+    const url = query ? `${KUPPI_ENDPOINTS.ADMIN_REVIEWS}?${query}` : KUPPI_ENDPOINTS.ADMIN_REVIEWS;
+    const response = await apiClient.get<KuppiReviewsResponse>(url);
+    return response.data;
+}
+
+/**
+ * Delete a review (admin)
+ */
+export async function adminDeleteReview(reviewId: number): Promise<KuppiActionResponse> {
+    const response = await apiClient.delete<KuppiActionResponse>(KUPPI_ENDPOINTS.ADMIN_REVIEW_DELETE(reviewId));
     return response.data;
 }
 

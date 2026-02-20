@@ -232,25 +232,34 @@ export default function KuppiPage() {
                         <Typography variant="h4" fontWeight={700} gutterBottom>Kuppi Sessions</Typography>
                         <Typography variant="body2" color="text.secondary">Join peer-led study sessions and excel in your studies</Typography>
                     </Box>
-                    <Stack direction="row" spacing={2}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ gap: 1 }}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<PersonIcon />}
+                            onClick={() => router.push('/student/kuppi/tutors')}
+                            sx={{ borderRadius: 1 }}
+                            size="small"
+                        >
+                            Find Tutors
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            startIcon={<DescriptionIcon />}
+                            onClick={() => router.push('/student/kuppi/notes')}
+                            sx={{ borderRadius: 1 }}
+                            size="small"
+                        >
+                            Notes
+                        </Button>
                         {isKuppiStudent && (
                             <Button
                                 variant="contained"
                                 startIcon={<AddIcon />}
                                 onClick={() => router.push('/student/kuppi/create')}
-                                sx={{ borderRadius: 2 }}
+                                sx={{ borderRadius: 1 }}
+                                size="small"
                             >
                                 Create Session
-                            </Button>
-                        )}
-                        {canApply && !isKuppiStudent && (
-                            <Button
-                                variant="outlined"
-                                startIcon={<PeopleIcon />}
-                                onClick={() => router.push('/student/kuppi/hosts')}
-                                sx={{ borderRadius: 2 }}
-                            >
-                                Become a Host
                             </Button>
                         )}
                     </Stack>
@@ -259,13 +268,13 @@ export default function KuppiPage() {
 
             {/* Hero Banner for non-Kuppi students */}
             {!isKuppiStudent && canApply && (
-                <MotionCard variants={itemVariants} elevation={0} sx={{ mb: 4, borderRadius: 3, background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`, color: 'white' }}>
+                <MotionCard variants={itemVariants} elevation={0} sx={{ mb: 4, borderRadius: 3, background: theme.palette.primary.main, color: 'white' }}>
                     <CardContent sx={{ p: 4 }}>
                         <Stack direction={{ xs: 'column', md: 'row' }} alignItems="center" spacing={4}>
                             <Box sx={{ flex: 1 }}>
                                 <Typography variant="h5" fontWeight={700} gutterBottom>Become a Kuppi Host</Typography>
                                 <Typography variant="body1" sx={{ mb: 3, opacity: 0.9 }}>Share your knowledge and help fellow students succeed. Apply to become a Kuppi host today!</Typography>
-                                <Button variant="contained" sx={{ bgcolor: 'white', color: 'primary.main', '&:hover': { bgcolor: alpha('#fff', 0.9) } }} onClick={() => router.push('/student/kuppi/hosts')}>Apply Now</Button>
+                                <Button variant="text" sx={{ bgcolor: 'white', color: 'primary.main', '&:hover': { bgcolor: alpha('#fff', 0.9) } }} onClick={() => router.push('/student/kuppi/hosts')}>Apply Now</Button>
                             </Box>
                             <Box sx={{ display: { xs: 'none', md: 'block' } }}>
                                 <SchoolIcon sx={{ fontSize: 120, opacity: 0.3 }} />
@@ -285,7 +294,7 @@ export default function KuppiPage() {
                                 <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Stack direction="row" alignItems="center" spacing={1.5}>
-                                            <Box sx={{ width: 40, height: 40, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(stat.color, 0.1) }}>
+                                            <Box sx={{ width: 40, height: 40, borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(stat.color, 0.1) }}>
                                                 <Icon sx={{ color: stat.color, fontSize: 20 }} />
                                             </Box>
                                             <Box>
@@ -302,7 +311,7 @@ export default function KuppiPage() {
             </MotionBox>
 
             {/* Filters */}
-            <MotionCard variants={itemVariants} elevation={0} sx={{ mb: 4, borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+            <MotionCard variants={itemVariants} elevation={0} sx={{ mb: 4, borderRadius: 1, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
                 <CardContent sx={{ p: 2 }}>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between">
                         <TextField
@@ -311,10 +320,16 @@ export default function KuppiPage() {
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                             size="small"
-                            sx={{ maxWidth: { sm: 300 }, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                            sx={{ maxWidth: { sm: 300 }, '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
                             slotProps={{
                                 input: {
-                                    startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary' }} /></InputAdornment>,
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <IconButton size="small" onClick={handleSearch} disabled={isLoading}>
+                                                <SearchIcon sx={{ color: 'text.secondary' }} />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
                                     endAdornment: searchQuery && (
                                         <InputAdornment position="end">
                                             <IconButton size="small" onClick={() => { setSearchQuery(''); dispatch(fetchSessions({ page: 0, size: 10 })); }}>

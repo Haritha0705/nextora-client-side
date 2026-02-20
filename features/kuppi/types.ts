@@ -328,3 +328,159 @@ export interface KuppiDateRangeParams extends KuppiPaginationParams {
     endDate: string;
 }
 
+// ============================================================================
+// Kuppi Student Types
+// ============================================================================
+
+export type Faculty = 'COMPUTING' | 'ENGINEERING' | 'BUSINESS' | 'SCIENCE' | 'HUMANITIES';
+
+export interface SessionSummary {
+    id: number;
+    title: string;
+    subject: string;
+    status: SessionStatus;
+    scheduledStartTime: string;
+    scheduledEndTime: string;
+    viewCount: number;
+}
+
+export interface KuppiStudentResponse {
+    id: number;
+    studentId: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    profilePictureUrl: string | null;
+    batch: string;
+    program: string;
+    faculty: Faculty;
+    kuppiSubjects: string[];
+    kuppiExperienceLevel: ExperienceLevel;
+    kuppiSessionsCompleted: number;
+    kuppiRating: number;
+    kuppiAvailability: string;
+    totalSessionsHosted: number;
+    totalViews: number;
+    upcomingSessions: number;
+    isActive: boolean;
+}
+
+export interface KuppiStudentDetailResponse {
+    id: number;
+    studentId: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    profilePictureUrl: string | null;
+    batch: string;
+    program: string;
+    faculty: Faculty;
+    kuppiSubjects: string[];
+    kuppiExperienceLevel: ExperienceLevel;
+    kuppiSessionsCompleted: number;
+    kuppiRating: number;
+    kuppiAvailability: string;
+    totalSessionsHosted: number;
+    completedSessions: number;
+    liveSessions: number;
+    scheduledSessions: number;
+    cancelledSessions: number;
+    totalViews: number;
+    totalNotesUploaded: number;
+    recentSessions: SessionSummary[];
+    upcomingSessions: SessionSummary[];
+    kuppiApprovedAt: string;
+    memberSince: string;
+    isActive: boolean;
+}
+
+export interface KuppiStudentsResponse {
+    success: boolean;
+    message: string;
+    data: {
+        content: KuppiStudentResponse[];
+        pageNumber: number;
+        pageSize: number;
+        totalElements: number;
+        totalPages: number;
+        first: boolean;
+        last: boolean;
+        empty?: boolean;
+    };
+    timestamp: string;
+}
+
+export interface KuppiStudentDetailApiResponse {
+    success: boolean;
+    message: string;
+    data: KuppiStudentDetailResponse;
+    timestamp: string;
+}
+
+export interface KuppiStudentSearchByNameParams extends KuppiPaginationParams {
+    name: string;
+}
+
+export interface KuppiStudentSearchBySubjectParams extends KuppiPaginationParams {
+    subject: string;
+}
+
+// ============================================================================
+// Review Types
+// ============================================================================
+
+export interface KuppiReviewResponse {
+    id: number;
+    sessionId: number;
+    sessionTitle: string;
+    reviewerId: number;
+    reviewerName: string;
+    tutorId: number;
+    tutorName: string;
+    rating: number;
+    comment: string;
+    tutorResponse: string | null;
+    tutorResponseAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateKuppiReviewRequest {
+    sessionId: number;
+    rating: number;
+    comment: string;
+}
+
+export interface UpdateKuppiReviewRequest {
+    rating?: number;
+    comment?: string;
+}
+
+export interface TutorResponseRequest {
+    responseText: string;
+}
+
+export interface KuppiReviewsResponse {
+    success: boolean;
+    message: string;
+    data: {
+        content: KuppiReviewResponse[];
+        pageNumber: number;
+        pageSize: number;
+        totalElements: number;
+        totalPages: number;
+        first: boolean;
+        last: boolean;
+        empty?: boolean;
+    };
+    timestamp: string;
+}
+
+export interface KuppiReviewDetailResponse {
+    success: boolean;
+    message: string;
+    data: KuppiReviewResponse;
+    timestamp: string;
+}

@@ -29,18 +29,10 @@ import {
     Paper,
     Tooltip,
     Skeleton,
-    useMediaQuery,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     TablePagination,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DownloadIcon from '@mui/icons-material/Download';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -59,14 +51,13 @@ import {
     fetchMyNotes,
     fetchNoteById,
     uploadNoteAsync,
-    deleteNoteAsync,
+    searchNotesAsync,
     checkIsKuppiStudentAsync,
     selectKuppiNotes,
     selectKuppiMyNotes,
     selectKuppiSelectedNote,
     selectKuppiTotalNotes,
     selectKuppiIsKuppiStudent,
-    selectKuppiIsLoading,
     selectKuppiIsNoteLoading,
     selectKuppiIsCreating,
     selectKuppiError,
@@ -118,7 +109,6 @@ export default function KuppiNotesPage() {
     const router = useRouter();
     const theme = useTheme();
     const dispatch = useAppDispatch();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     // Redux state
     const notes = useAppSelector(selectKuppiNotes);
@@ -126,13 +116,15 @@ export default function KuppiNotesPage() {
     const selectedNote = useAppSelector(selectKuppiSelectedNote);
     const totalNotes = useAppSelector(selectKuppiTotalNotes);
     const isKuppiStudent = useAppSelector(selectKuppiIsKuppiStudent);
-    const isLoading = useAppSelector(selectKuppiIsLoading);
-    const isNoteLoading = useAppSelector(selectKuppiIsNoteLoading);
+    const isLoading = useAppSelector(selectKuppiIsNoteLoading);
     const isCreating = useAppSelector(selectKuppiIsCreating);
     const error = useAppSelector(selectKuppiError);
     const successMessage = useAppSelector(selectKuppiSuccessMessage);
     const page = useAppSelector(selectKuppiCurrentPage);
-    const pageSize = useAppSelector(selectKuppiPageSize);
+    const reduxPageSize = useAppSelector(selectKuppiPageSize);
+
+    // Use default page size if not set
+    const pageSize = reduxPageSize || 10;
 
     // Local state
     const [searchQuery, setSearchQuery] = useState('');
@@ -155,7 +147,7 @@ export default function KuppiNotesPage() {
     useEffect(() => {
         dispatch(checkIsKuppiStudentAsync());
         dispatch(fetchNotes({ page: 0, size: pageSize }));
-    }, [dispatch, pageSize]);
+    }, [dispatch]); // Remove pageSize dependency to prevent re-fetching on pageSize change
 
     // Get current notes based on tab
     const currentNotes = activeTab === 1 ? myNotes : notes;
@@ -172,14 +164,9 @@ export default function KuppiNotesPage() {
     };
 
     // Handle search
-    const handleSearch = useCallback(async () => {
+    const handleSearch = useCallback(() => {
         if (searchQuery.trim()) {
-            try {
-                const response = await kuppiServices.searchNotes({ keyword: searchQuery, page: 0, size: pageSize });
-                // Note: In a real implementation, you'd dispatch an action to update the store
-            } catch (err) {
-                setSnackbar({ open: true, message: 'Search failed', severity: 'error' });
-            }
+            dispatch(searchNotesAsync({ keyword: searchQuery, page: 0, size: pageSize }));
         } else {
             dispatch(fetchNotes({ page: 0, size: pageSize }));
         }
@@ -269,9 +256,14 @@ export default function KuppiNotesPage() {
         if (successMessage) {
             setSnackbar({ open: true, message: successMessage, severity: 'success' });
             dispatch(clearKuppiSuccessMessage());
-            handleRefresh();
+            // Refresh notes after successful action
+            if (activeTab === 0) {
+                dispatch(fetchNotes({ page, size: pageSize }));
+            } else if (activeTab === 1) {
+                dispatch(fetchMyNotes({ page, size: pageSize }));
+            }
         }
-    }, [error, successMessage, dispatch]);
+    }, [error, successMessage, dispatch, activeTab, page, pageSize]);
 
     // Stats
     const stats = [
@@ -368,6 +360,15 @@ export default function KuppiNotesPage() {
                         </Grid>
                     ))}
                 </Grid>
+            ) : error ? (
+                <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 2, border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`, bgcolor: alpha(theme.palette.error.main, 0.05) }}>
+                    <DescriptionIcon sx={{ fontSize: 60, color: 'error.main', mb: 2 }} />
+                    <Typography variant="h6" fontWeight={600} gutterBottom color="error">Failed to Load Notes</Typography>
+                    <Typography color="text.secondary" sx={{ mb: 2 }}>{error}</Typography>
+                    <Button variant="outlined" color="primary" onClick={handleRefresh}>
+                        Try Again
+                    </Button>
+                </Paper>
             ) : currentNotes.length === 0 ? (
                 <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
                     <DescriptionIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
@@ -418,13 +419,13 @@ export default function KuppiNotesPage() {
                                         <Stack direction="row" spacing={2}>
                                             <Stack direction="row" spacing={0.5} alignItems="center">
                                                 <VisibilityIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                                <Typography variant="caption" color="text.secondary">{note.viewCount}</Typography>
+                                                <Typography variant="caption" color="text.secondary">{note.viewCount ?? 0}</Typography>
                                             </Stack>
                                             <Stack direction="row" spacing={0.5} alignItems="center">
                                                 <DownloadIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                                <Typography variant="caption" color="text.secondary">{note.downloadCount}</Typography>
+                                                <Typography variant="caption" color="text.secondary">{note.downloadCount ?? 0}</Typography>
                                             </Stack>
-                                            <Typography variant="caption" color="text.secondary">{note.formattedFileSize}</Typography>
+                                            <Typography variant="caption" color="text.secondary">{note.formattedFileSize || 'N/A'}</Typography>
                                         </Stack>
 
                                         {/* Uploader */}
@@ -432,7 +433,7 @@ export default function KuppiNotesPage() {
                                             <Avatar sx={{ width: 24, height: 24, bgcolor: theme.palette.primary.main, fontSize: '0.75rem' }}>
                                                 {note.uploaderName?.[0] || 'U'}
                                             </Avatar>
-                                            <Typography variant="caption" color="text.secondary">{note.uploaderName}</Typography>
+                                            <Typography variant="caption" color="text.secondary">{note.uploaderName || 'Unknown'}</Typography>
                                         </Stack>
 
                                         {/* Actions */}
@@ -484,7 +485,7 @@ export default function KuppiNotesPage() {
                     </Stack>
                 </DialogTitle>
                 <DialogContent dividers>
-                    {isNoteLoading ? (
+                    {isLoading ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
                     ) : selectedNote ? (
                         <Stack spacing={3}>

@@ -17,6 +17,17 @@ import {
     CreateKuppiApplicationRequest,
     ReviewKuppiApplicationRequest,
     ApplicationStatus,
+    // Kuppi Student Types
+    KuppiStudentResponse,
+    KuppiStudentDetailResponse,
+    KuppiStudentSearchByNameParams,
+    KuppiStudentSearchBySubjectParams,
+    Faculty,
+    // Review Types
+    KuppiReviewResponse,
+    CreateKuppiReviewRequest,
+    UpdateKuppiReviewRequest,
+    TutorResponseRequest,
 } from './types';
 
 // ============================================================================
@@ -56,6 +67,26 @@ interface KuppiState {
         applicationsToday: number;
         totalKuppiStudents: number;
     } | null;
+
+    // Kuppi Students
+    kuppiStudents: KuppiStudentResponse[];
+    selectedKuppiStudent: KuppiStudentDetailResponse | null;
+    topRatedKuppiStudents: KuppiStudentResponse[];
+    totalKuppiStudents: number;
+    isKuppiStudentsLoading: boolean;
+    isKuppiStudentDetailLoading: boolean;
+
+    // Reviews
+    reviews: KuppiReviewResponse[];
+    myReviews: KuppiReviewResponse[];
+    myHostedReviews: KuppiReviewResponse[];
+    sessionReviews: KuppiReviewResponse[];
+    tutorReviews: KuppiReviewResponse[];
+    selectedReview: KuppiReviewResponse | null;
+    totalReviews: number;
+    isReviewsLoading: boolean;
+    isReviewCreating: boolean;
+    isReviewUpdating: boolean;
 
     // Analytics
     myAnalytics: {
@@ -121,6 +152,26 @@ const initialState: KuppiState = {
     selectedApplication: null,
     totalApplications: 0,
     applicationStats: null,
+
+    // Kuppi Students
+    kuppiStudents: [],
+    selectedKuppiStudent: null,
+    topRatedKuppiStudents: [],
+    totalKuppiStudents: 0,
+    isKuppiStudentsLoading: false,
+    isKuppiStudentDetailLoading: false,
+
+    // Reviews
+    reviews: [],
+    myReviews: [],
+    myHostedReviews: [],
+    sessionReviews: [],
+    tutorReviews: [],
+    selectedReview: null,
+    totalReviews: 0,
+    isReviewsLoading: false,
+    isReviewCreating: false,
+    isReviewUpdating: false,
 
     myAnalytics: null,
     platformStats: null,
@@ -313,6 +364,19 @@ export const fetchMyNotes = createAsyncThunk(
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
             return rejectWithValue(err.response?.data?.message || 'Failed to fetch my notes');
+        }
+    }
+);
+
+export const searchNotesAsync = createAsyncThunk(
+    'kuppi/searchNotes',
+    async (params: KuppiSearchParams, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.searchNotes(params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to search notes');
         }
     }
 );
@@ -511,6 +575,243 @@ export const adminFetchPlatformStats = createAsyncThunk(
 );
 
 // ============================================================================
+// Async Thunks - Kuppi Students
+// ============================================================================
+
+export const fetchKuppiStudents = createAsyncThunk(
+    'kuppi/fetchKuppiStudents',
+    async (params: KuppiPaginationParams, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.getAllKuppiStudents(params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch Kuppi students');
+        }
+    }
+);
+
+export const fetchKuppiStudentById = createAsyncThunk(
+    'kuppi/fetchKuppiStudentById',
+    async (studentId: number, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.getKuppiStudentById(studentId);
+            return response.data;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch Kuppi student details');
+        }
+    }
+);
+
+export const searchKuppiStudentsByNameAsync = createAsyncThunk(
+    'kuppi/searchKuppiStudentsByName',
+    async (params: KuppiStudentSearchByNameParams, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.searchKuppiStudentsByName(params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to search Kuppi students');
+        }
+    }
+);
+
+export const searchKuppiStudentsBySubjectAsync = createAsyncThunk(
+    'kuppi/searchKuppiStudentsBySubject',
+    async (params: KuppiStudentSearchBySubjectParams, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.searchKuppiStudentsBySubject(params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to search Kuppi students by subject');
+        }
+    }
+);
+
+export const fetchKuppiStudentsByFaculty = createAsyncThunk(
+    'kuppi/fetchKuppiStudentsByFaculty',
+    async ({ faculty, params }: { faculty: Faculty; params?: KuppiPaginationParams }, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.getKuppiStudentsByFaculty(faculty, params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch Kuppi students by faculty');
+        }
+    }
+);
+
+export const fetchTopRatedKuppiStudents = createAsyncThunk(
+    'kuppi/fetchTopRatedKuppiStudents',
+    async (params: KuppiPaginationParams, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.getTopRatedKuppiStudents(params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch top-rated Kuppi students');
+        }
+    }
+);
+
+// ============================================================================
+// Async Thunks - Reviews (Student)
+// ============================================================================
+
+export const createReviewAsync = createAsyncThunk(
+    'kuppi/createReview',
+    async (data: CreateKuppiReviewRequest, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.createReview(data);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to create review');
+        }
+    }
+);
+
+export const updateReviewAsync = createAsyncThunk(
+    'kuppi/updateReview',
+    async ({ reviewId, data }: { reviewId: number; data: UpdateKuppiReviewRequest }, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.updateReview(reviewId, data);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to update review');
+        }
+    }
+);
+
+export const deleteReviewAsync = createAsyncThunk(
+    'kuppi/deleteReview',
+    async (reviewId: number, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.deleteReview(reviewId);
+            return { reviewId, response };
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to delete review');
+        }
+    }
+);
+
+export const fetchReviewById = createAsyncThunk(
+    'kuppi/fetchReviewById',
+    async (reviewId: number, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.getReviewById(reviewId);
+            return response.data;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch review');
+        }
+    }
+);
+
+export const fetchMyReviews = createAsyncThunk(
+    'kuppi/fetchMyReviews',
+    async (params: KuppiPaginationParams, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.getMyReviews(params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch my reviews');
+        }
+    }
+);
+
+export const fetchSessionReviews = createAsyncThunk(
+    'kuppi/fetchSessionReviews',
+    async ({ sessionId, params }: { sessionId: number; params?: KuppiPaginationParams }, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.getSessionReviews(sessionId, params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch session reviews');
+        }
+    }
+);
+
+export const fetchTutorReviews = createAsyncThunk(
+    'kuppi/fetchTutorReviews',
+    async ({ tutorId, params }: { tutorId: number; params?: KuppiPaginationParams }, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.getTutorReviews(tutorId, params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch tutor reviews');
+        }
+    }
+);
+
+// ============================================================================
+// Async Thunks - Reviews (Tutor)
+// ============================================================================
+
+export const addTutorResponseAsync = createAsyncThunk(
+    'kuppi/addTutorResponse',
+    async ({ reviewId, data }: { reviewId: number; data: TutorResponseRequest }, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.addTutorResponse(reviewId, data);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to add response');
+        }
+    }
+);
+
+export const fetchMyHostedReviews = createAsyncThunk(
+    'kuppi/fetchMyHostedReviews',
+    async (params: KuppiPaginationParams, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.getMyHostedReviews(params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch reviews for my hosted sessions');
+        }
+    }
+);
+
+// ============================================================================
+// Async Thunks - Reviews (Admin)
+// ============================================================================
+
+export const adminFetchAllReviews = createAsyncThunk(
+    'kuppi/adminFetchAllReviews',
+    async (params: KuppiPaginationParams, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.adminGetAllReviews(params);
+            return response;
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to fetch all reviews');
+        }
+    }
+);
+
+export const adminDeleteReviewAsync = createAsyncThunk(
+    'kuppi/adminDeleteReview',
+    async (reviewId: number, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.adminDeleteReview(reviewId);
+            return { reviewId, response };
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to delete review');
+        }
+    }
+);
+
+// ============================================================================
 // Slice
 // ============================================================================
 
@@ -532,6 +833,15 @@ const kuppiSlice = createSlice({
         },
         clearSelectedApplication: (state) => {
             state.selectedApplication = null;
+        },
+        clearSelectedKuppiStudent: (state) => {
+            state.selectedKuppiStudent = null;
+        },
+        clearSelectedReview: (state) => {
+            state.selectedReview = null;
+        },
+        clearSessionReviews: (state) => {
+            state.sessionReviews = [];
         },
         clearError: (state) => {
             state.error = null;
@@ -577,9 +887,18 @@ const kuppiSlice = createSlice({
         });
 
         // Search Sessions
+        builder.addCase(searchSessionsAsync.pending, (state) => {
+            state.isLoading = true;
+            state.error = null;
+        });
         builder.addCase(searchSessionsAsync.fulfilled, (state, action) => {
+            state.isLoading = false;
             state.sessions = action.payload.data.content;
             state.totalSessions = action.payload.data.totalElements;
+        });
+        builder.addCase(searchSessionsAsync.rejected, (state, action) => {
+            state.isLoading = false;
+            state.error = action.payload as string;
         });
 
         // Fetch My Sessions
@@ -635,15 +954,17 @@ const kuppiSlice = createSlice({
 
         // Fetch Notes
         builder.addCase(fetchNotes.pending, (state) => {
-            state.isLoading = true;
+            state.isNoteLoading = true;
+            state.error = null;
         });
         builder.addCase(fetchNotes.fulfilled, (state, action) => {
-            state.isLoading = false;
-            state.notes = action.payload.data.content;
-            state.totalNotes = action.payload.data.totalElements;
+            state.isNoteLoading = false;
+            state.notes = action.payload.data?.content || [];
+            state.totalNotes = action.payload.data?.totalElements || 0;
         });
         builder.addCase(fetchNotes.rejected, (state, action) => {
-            state.isLoading = false;
+            state.isNoteLoading = false;
+            state.notes = [];
             state.error = action.payload as string;
         });
 
@@ -653,8 +974,33 @@ const kuppiSlice = createSlice({
         });
 
         // Fetch My Notes
+        builder.addCase(fetchMyNotes.pending, (state) => {
+            state.isNoteLoading = true;
+            state.error = null;
+        });
         builder.addCase(fetchMyNotes.fulfilled, (state, action) => {
-            state.myNotes = action.payload.data.content;
+            state.isNoteLoading = false;
+            state.myNotes = action.payload.data?.content || [];
+        });
+        builder.addCase(fetchMyNotes.rejected, (state, action) => {
+            state.isNoteLoading = false;
+            state.myNotes = [];
+            state.error = action.payload as string;
+        });
+
+        // Search Notes
+        builder.addCase(searchNotesAsync.pending, (state) => {
+            state.isNoteLoading = true;
+            state.error = null;
+        });
+        builder.addCase(searchNotesAsync.fulfilled, (state, action) => {
+            state.isNoteLoading = false;
+            state.notes = action.payload.data?.content || [];
+            state.totalNotes = action.payload.data?.totalElements || 0;
+        });
+        builder.addCase(searchNotesAsync.rejected, (state, action) => {
+            state.isNoteLoading = false;
+            state.error = action.payload as string;
         });
 
         // Upload Note
@@ -757,6 +1103,261 @@ const kuppiSlice = createSlice({
         builder.addCase(adminFetchPlatformStats.fulfilled, (state, action) => {
             state.platformStats = action.payload;
         });
+
+        // ============================================================================
+        // Kuppi Students Reducers
+        // ============================================================================
+
+        // Fetch Kuppi Students
+        builder.addCase(fetchKuppiStudents.pending, (state) => {
+            state.isKuppiStudentsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchKuppiStudents.fulfilled, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.kuppiStudents = action.payload.data.content;
+            state.totalKuppiStudents = action.payload.data.totalElements;
+        });
+        builder.addCase(fetchKuppiStudents.rejected, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Fetch Kuppi Student By ID
+        builder.addCase(fetchKuppiStudentById.pending, (state) => {
+            state.isKuppiStudentDetailLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchKuppiStudentById.fulfilled, (state, action) => {
+            state.isKuppiStudentDetailLoading = false;
+            state.selectedKuppiStudent = action.payload;
+        });
+        builder.addCase(fetchKuppiStudentById.rejected, (state, action) => {
+            state.isKuppiStudentDetailLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Search Kuppi Students By Name
+        builder.addCase(searchKuppiStudentsByNameAsync.pending, (state) => {
+            state.isKuppiStudentsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(searchKuppiStudentsByNameAsync.fulfilled, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.kuppiStudents = action.payload.data.content;
+            state.totalKuppiStudents = action.payload.data.totalElements;
+        });
+        builder.addCase(searchKuppiStudentsByNameAsync.rejected, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Search Kuppi Students By Subject
+        builder.addCase(searchKuppiStudentsBySubjectAsync.pending, (state) => {
+            state.isKuppiStudentsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(searchKuppiStudentsBySubjectAsync.fulfilled, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.kuppiStudents = action.payload.data.content;
+            state.totalKuppiStudents = action.payload.data.totalElements;
+        });
+        builder.addCase(searchKuppiStudentsBySubjectAsync.rejected, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Fetch Kuppi Students By Faculty
+        builder.addCase(fetchKuppiStudentsByFaculty.pending, (state) => {
+            state.isKuppiStudentsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchKuppiStudentsByFaculty.fulfilled, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.kuppiStudents = action.payload.data.content;
+            state.totalKuppiStudents = action.payload.data.totalElements;
+        });
+        builder.addCase(fetchKuppiStudentsByFaculty.rejected, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Fetch Top Rated Kuppi Students
+        builder.addCase(fetchTopRatedKuppiStudents.pending, (state) => {
+            state.isKuppiStudentsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchTopRatedKuppiStudents.fulfilled, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.topRatedKuppiStudents = action.payload.data.content;
+        });
+        builder.addCase(fetchTopRatedKuppiStudents.rejected, (state, action) => {
+            state.isKuppiStudentsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // ============================================================================
+        // Review Reducers
+        // ============================================================================
+
+        // Create Review
+        builder.addCase(createReviewAsync.pending, (state) => {
+            state.isReviewCreating = true;
+            state.error = null;
+        });
+        builder.addCase(createReviewAsync.fulfilled, (state, action) => {
+            state.isReviewCreating = false;
+            state.myReviews = [action.payload.data, ...state.myReviews];
+            state.successMessage = action.payload.message || 'Review created successfully';
+        });
+        builder.addCase(createReviewAsync.rejected, (state, action) => {
+            state.isReviewCreating = false;
+            state.error = action.payload as string;
+        });
+
+        // Update Review
+        builder.addCase(updateReviewAsync.pending, (state) => {
+            state.isReviewUpdating = true;
+            state.error = null;
+        });
+        builder.addCase(updateReviewAsync.fulfilled, (state, action) => {
+            state.isReviewUpdating = false;
+            const updatedReview = action.payload.data;
+            state.myReviews = state.myReviews.map(r => r.id === updatedReview.id ? updatedReview : r);
+            state.reviews = state.reviews.map(r => r.id === updatedReview.id ? updatedReview : r);
+            state.sessionReviews = state.sessionReviews.map(r => r.id === updatedReview.id ? updatedReview : r);
+            state.successMessage = action.payload.message || 'Review updated successfully';
+        });
+        builder.addCase(updateReviewAsync.rejected, (state, action) => {
+            state.isReviewUpdating = false;
+            state.error = action.payload as string;
+        });
+
+        // Delete Review
+        builder.addCase(deleteReviewAsync.fulfilled, (state, action) => {
+            const { reviewId } = action.payload;
+            state.myReviews = state.myReviews.filter(r => r.id !== reviewId);
+            state.reviews = state.reviews.filter(r => r.id !== reviewId);
+            state.sessionReviews = state.sessionReviews.filter(r => r.id !== reviewId);
+            state.successMessage = 'Review deleted successfully';
+        });
+        builder.addCase(deleteReviewAsync.rejected, (state, action) => {
+            state.error = action.payload as string;
+        });
+
+        // Fetch Review By ID
+        builder.addCase(fetchReviewById.pending, (state) => {
+            state.isReviewsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchReviewById.fulfilled, (state, action) => {
+            state.isReviewsLoading = false;
+            state.selectedReview = action.payload;
+        });
+        builder.addCase(fetchReviewById.rejected, (state, action) => {
+            state.isReviewsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Fetch My Reviews
+        builder.addCase(fetchMyReviews.pending, (state) => {
+            state.isReviewsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchMyReviews.fulfilled, (state, action) => {
+            state.isReviewsLoading = false;
+            state.myReviews = action.payload.data.content;
+            state.totalReviews = action.payload.data.totalElements;
+        });
+        builder.addCase(fetchMyReviews.rejected, (state, action) => {
+            state.isReviewsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Fetch Session Reviews
+        builder.addCase(fetchSessionReviews.pending, (state) => {
+            state.isReviewsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchSessionReviews.fulfilled, (state, action) => {
+            state.isReviewsLoading = false;
+            state.sessionReviews = action.payload.data.content;
+        });
+        builder.addCase(fetchSessionReviews.rejected, (state, action) => {
+            state.isReviewsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Fetch Tutor Reviews
+        builder.addCase(fetchTutorReviews.pending, (state) => {
+            state.isReviewsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchTutorReviews.fulfilled, (state, action) => {
+            state.isReviewsLoading = false;
+            state.tutorReviews = action.payload.data.content;
+        });
+        builder.addCase(fetchTutorReviews.rejected, (state, action) => {
+            state.isReviewsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Add Tutor Response
+        builder.addCase(addTutorResponseAsync.pending, (state) => {
+            state.isReviewUpdating = true;
+            state.error = null;
+        });
+        builder.addCase(addTutorResponseAsync.fulfilled, (state, action) => {
+            state.isReviewUpdating = false;
+            const updatedReview = action.payload.data;
+            state.myHostedReviews = state.myHostedReviews.map(r => r.id === updatedReview.id ? updatedReview : r);
+            state.reviews = state.reviews.map(r => r.id === updatedReview.id ? updatedReview : r);
+            state.successMessage = action.payload.message || 'Response added successfully';
+        });
+        builder.addCase(addTutorResponseAsync.rejected, (state, action) => {
+            state.isReviewUpdating = false;
+            state.error = action.payload as string;
+        });
+
+        // Fetch My Hosted Reviews
+        builder.addCase(fetchMyHostedReviews.pending, (state) => {
+            state.isReviewsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchMyHostedReviews.fulfilled, (state, action) => {
+            state.isReviewsLoading = false;
+            state.myHostedReviews = action.payload.data.content;
+            state.totalReviews = action.payload.data.totalElements;
+        });
+        builder.addCase(fetchMyHostedReviews.rejected, (state, action) => {
+            state.isReviewsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Admin Fetch All Reviews
+        builder.addCase(adminFetchAllReviews.pending, (state) => {
+            state.isReviewsLoading = true;
+            state.error = null;
+        });
+        builder.addCase(adminFetchAllReviews.fulfilled, (state, action) => {
+            state.isReviewsLoading = false;
+            state.reviews = action.payload.data.content;
+            state.totalReviews = action.payload.data.totalElements;
+        });
+        builder.addCase(adminFetchAllReviews.rejected, (state, action) => {
+            state.isReviewsLoading = false;
+            state.error = action.payload as string;
+        });
+
+        // Admin Delete Review
+        builder.addCase(adminDeleteReviewAsync.fulfilled, (state, action) => {
+            const { reviewId } = action.payload;
+            state.reviews = state.reviews.filter(r => r.id !== reviewId);
+            state.successMessage = 'Review deleted successfully';
+        });
+        builder.addCase(adminDeleteReviewAsync.rejected, (state, action) => {
+            state.error = action.payload as string;
+        });
     },
 });
 
@@ -787,6 +1388,26 @@ export const selectKuppiApplicationStats = (state: { kuppi: KuppiState }) => sta
 export const selectKuppiMyAnalytics = (state: { kuppi: KuppiState }) => state.kuppi.myAnalytics;
 export const selectKuppiPlatformStats = (state: { kuppi: KuppiState }) => state.kuppi.platformStats;
 
+// Kuppi Students Selectors
+export const selectKuppiStudents = (state: { kuppi: KuppiState }) => state.kuppi.kuppiStudents;
+export const selectSelectedKuppiStudent = (state: { kuppi: KuppiState }) => state.kuppi.selectedKuppiStudent;
+export const selectTopRatedKuppiStudents = (state: { kuppi: KuppiState }) => state.kuppi.topRatedKuppiStudents;
+export const selectTotalKuppiStudents = (state: { kuppi: KuppiState }) => state.kuppi.totalKuppiStudents;
+export const selectKuppiStudentsLoading = (state: { kuppi: KuppiState }) => state.kuppi.isKuppiStudentsLoading;
+export const selectKuppiStudentDetailLoading = (state: { kuppi: KuppiState }) => state.kuppi.isKuppiStudentDetailLoading;
+
+// Review Selectors
+export const selectKuppiReviews = (state: { kuppi: KuppiState }) => state.kuppi.reviews;
+export const selectKuppiMyReviews = (state: { kuppi: KuppiState }) => state.kuppi.myReviews;
+export const selectKuppiMyHostedReviews = (state: { kuppi: KuppiState }) => state.kuppi.myHostedReviews;
+export const selectKuppiSessionReviews = (state: { kuppi: KuppiState }) => state.kuppi.sessionReviews;
+export const selectKuppiTutorReviews = (state: { kuppi: KuppiState }) => state.kuppi.tutorReviews;
+export const selectKuppiSelectedReview = (state: { kuppi: KuppiState }) => state.kuppi.selectedReview;
+export const selectKuppiTotalReviews = (state: { kuppi: KuppiState }) => state.kuppi.totalReviews;
+export const selectKuppiIsReviewsLoading = (state: { kuppi: KuppiState }) => state.kuppi.isReviewsLoading;
+export const selectKuppiIsReviewCreating = (state: { kuppi: KuppiState }) => state.kuppi.isReviewCreating;
+export const selectKuppiIsReviewUpdating = (state: { kuppi: KuppiState }) => state.kuppi.isReviewUpdating;
+
 export const selectKuppiCurrentPage = (state: { kuppi: KuppiState }) => state.kuppi.currentPage;
 export const selectKuppiPageSize = (state: { kuppi: KuppiState }) => state.kuppi.pageSize;
 
@@ -811,6 +1432,9 @@ export const {
     clearSelectedSession: clearKuppiSelectedSession,
     clearSelectedNote: clearKuppiSelectedNote,
     clearSelectedApplication: clearKuppiSelectedApplication,
+    clearSelectedKuppiStudent,
+    clearSelectedReview: clearKuppiSelectedReview,
+    clearSessionReviews: clearKuppiSessionReviews,
     clearError: clearKuppiError,
     clearSuccessMessage: clearKuppiSuccessMessage,
     resetKuppiState,
