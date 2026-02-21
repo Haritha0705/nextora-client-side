@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -40,6 +40,7 @@ import {
     getDifficultyColor,
     getRemainingSpots,
 } from './kuppi.utils';
+import { useAuth } from '@/hooks';
 
 interface SessionDetailModalProps {
     session: KuppiSession | null;
@@ -68,6 +69,7 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const { user } = useAuth();
 
     if (!session) return null;
 
@@ -276,7 +278,7 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                     Topics Covered
                                 </Typography>
                                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                    {session.topics.map((topic) => (
+                                    {session.topics.map((topic: string) => (
                                         <Chip
                                             key={topic}
                                             label={topic}
@@ -391,10 +393,10 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                         {isBooking
                                             ? 'Booking...'
                                             : isBooked
-                                            ? 'Already Booked'
-                                            : isFull
-                                            ? 'Session Full'
-                                            : 'Book Session'}
+                                                ? 'Already Booked'
+                                                : isFull
+                                                    ? 'Session Full'
+                                                    : 'Book Session'}
                                     </Button>
                                     <Button
                                         variant="outlined"

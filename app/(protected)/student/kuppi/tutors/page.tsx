@@ -26,6 +26,8 @@ import {
     Skeleton,
     MenuItem,
     Pagination,
+    Divider,
+    LinearProgress,
 } from '@mui/material';
 import { AnimatePresence, motion } from 'framer-motion';
 import SearchIcon from '@mui/icons-material/Search';
@@ -40,6 +42,8 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import GroupsIcon from '@mui/icons-material/Groups';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import VerifiedIcon from '@mui/icons-material/Verified';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
@@ -68,52 +72,40 @@ const containerVariants = {
 
 const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
+    show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
 };
 
-// Experience level colors
-const EXPERIENCE_COLORS = {
+const EXPERIENCE_COLORS: Record<string, string> = {
     BEGINNER: '#10B981',
     INTERMEDIATE: '#3B82F6',
     ADVANCED: '#8B5CF6',
 };
 
-// Faculty options
 const FACULTY_OPTIONS: { value: Faculty | 'ALL'; label: string }[] = [
     { value: 'ALL', label: 'All Faculties' },
     { value: 'COMPUTING', label: 'Computing' },
     { value: 'BUSINESS', label: 'Business' },
 ];
 
-// Search type options
 const SEARCH_TYPE_OPTIONS = [
     { value: 'name', label: 'Search by Name' },
     { value: 'subject', label: 'Search by Subject' },
 ];
 
-// Get initials from name
-const getInitials = (name: string): string => {
-    return name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-};
+const getInitials = (name: string): string =>
+    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
 export default function KuppiTutorsPage() {
     const router = useRouter();
     const theme = useTheme();
     const dispatch = useAppDispatch();
 
-    // Redux state
     const kuppiStudents = useAppSelector(selectKuppiStudents);
     const topRatedStudents = useAppSelector(selectTopRatedKuppiStudents);
     const totalStudents = useAppSelector(selectTotalKuppiStudents);
     const isLoading = useAppSelector(selectKuppiStudentsLoading);
     const error = useAppSelector(selectKuppiError);
 
-    // Local state
     const [searchQuery, setSearchQuery] = useState('');
     const [searchType, setSearchType] = useState<'name' | 'subject'>('name');
     const [selectedFaculty, setSelectedFaculty] = useState<Faculty | 'ALL'>('ALL');
@@ -123,19 +115,16 @@ export default function KuppiTutorsPage() {
 
     const PAGE_SIZE = 12;
 
-    // Fetch students on mount
     useEffect(() => {
         dispatch(fetchKuppiStudents({ page: 0, size: PAGE_SIZE, sortBy: 'kuppiRating', sortDirection: 'DESC' }));
         dispatch(fetchTopRatedKuppiStudents({ page: 0, size: 5 }));
     }, [dispatch]);
 
-    // Handle tab change
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
         setActiveTab(newValue);
         setPage(0);
         setSearchQuery('');
         setSelectedFaculty('ALL');
-
         if (newValue === 0) {
             dispatch(fetchKuppiStudents({ page: 0, size: PAGE_SIZE, sortBy: 'kuppiRating', sortDirection: 'DESC' }));
         } else if (newValue === 1) {
@@ -143,7 +132,6 @@ export default function KuppiTutorsPage() {
         }
     };
 
-    // Handle search
     const handleSearch = useCallback(() => {
         setPage(0);
         if (searchQuery.trim()) {
@@ -159,12 +147,10 @@ export default function KuppiTutorsPage() {
         }
     }, [dispatch, searchQuery, searchType, selectedFaculty]);
 
-    // Handle faculty filter change
     const handleFacultyChange = (faculty: Faculty | 'ALL') => {
         setSelectedFaculty(faculty);
         setPage(0);
         setSearchQuery('');
-
         if (faculty === 'ALL') {
             dispatch(fetchKuppiStudents({ page: 0, size: PAGE_SIZE, sortBy: 'kuppiRating', sortDirection: 'DESC' }));
         } else {
@@ -172,11 +158,9 @@ export default function KuppiTutorsPage() {
         }
     };
 
-    // Handle page change
     const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
         const pageIndex = newPage - 1;
         setPage(pageIndex);
-
         if (searchQuery.trim()) {
             if (searchType === 'name') {
                 dispatch(searchKuppiStudentsByNameAsync({ name: searchQuery, page: pageIndex, size: PAGE_SIZE }));
@@ -192,7 +176,6 @@ export default function KuppiTutorsPage() {
         }
     };
 
-    // Handle refresh
     const handleRefresh = () => {
         setSearchQuery('');
         setSelectedFaculty('ALL');
@@ -204,7 +187,6 @@ export default function KuppiTutorsPage() {
         }
     };
 
-    // Handle clear search
     const handleClearSearch = () => {
         setSearchQuery('');
         setPage(0);
@@ -215,65 +197,53 @@ export default function KuppiTutorsPage() {
         }
     };
 
-    // Handle tutor click
-    const handleTutorClick = (student: KuppiStudentResponse) => {
+    const handleTutorClick = (student: KuppiStudentResponse) =>
         router.push(`/student/kuppi/tutors/${student.id}`);
-    };
 
-    // Handle error messages
     useEffect(() => {
-        if (error) {
-            setSnackbar({ open: true, message: error, severity: 'error' });
-            dispatch(clearKuppiError());
-        }
+        if (error) { setSnackbar({ open: true, message: error, severity: 'error' }); dispatch(clearKuppiError()); }
     }, [error, dispatch]);
 
-    // Stats for header
     const stats = [
         { label: 'Total Tutors', value: totalStudents, icon: GroupsIcon, color: '#3B82F6' },
         { label: 'Top Rated', value: topRatedStudents.length, icon: StarIcon, color: '#F59E0B' },
     ];
 
-    // Get display students based on active tab
     const displayStudents = activeTab === 1 ? topRatedStudents : kuppiStudents;
     const totalPages = Math.ceil(totalStudents / PAGE_SIZE);
 
     return (
         <MotionBox variants={containerVariants} initial="hidden" animate="show" sx={{ maxWidth: 1400, mx: 'auto' }}>
-            {/* Back Button */}
+            {/* ── Back ── */}
             <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={() => router.push('/student/kuppi')}
-                sx={{ mb: 2, textTransform: 'none', color: 'text.secondary' }}
+                sx={{ mb: 2, textTransform: 'none', color: 'text.secondary', fontWeight: 600, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.05) } }}
             >
                 Back to Sessions
             </Button>
 
-            {/* Page Header */}
+            {/* ══════════════  HEADER  ══════════════ */}
             <MotionBox variants={itemVariants} sx={{ mb: 4 }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
-                    <Box>
-                        <Typography variant="h4" fontWeight={700} gutterBottom>Kuppi Tutors</Typography>
-                        <Typography variant="body2" color="text.secondary">Find expert peer tutors to help you excel in your studies</Typography>
-                    </Box>
-                </Stack>
+                <Typography variant="h4" fontWeight={700} gutterBottom sx={{ letterSpacing: '-0.02em' }}>Kuppi Tutors</Typography>
+                <Typography variant="body2" color="text.secondary">Find expert peer tutors to help you excel in your studies</Typography>
             </MotionBox>
 
-            {/* Stats Grid */}
+            {/* ══════════════  STATS  ══════════════ */}
             <MotionBox variants={itemVariants} sx={{ mb: 4 }}>
                 <Grid container spacing={2}>
-                    {stats.map((stat, index) => {
+                    {stats.map((stat, idx) => {
                         const Icon = stat.icon;
                         return (
-                            <Grid size={{ xs: 6, sm: 3 }} key={index}>
-                                <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                                    <CardContent sx={{ p: 2 }}>
+                            <Grid size={{ xs: 6, sm: 3 }} key={idx}>
+                                <Card elevation={0} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', transition: 'all 0.2s', '&:hover': { borderColor: stat.color, boxShadow: `0 4px 16px ${alpha(stat.color, 0.15)}` } }}>
+                                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                                         <Stack direction="row" alignItems="center" spacing={1.5}>
-                                            <Box sx={{ width: 40, height: 40, borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(stat.color, 0.1) }}>
-                                                <Icon sx={{ color: stat.color, fontSize: 20 }} />
+                                            <Box sx={{ width: 44, height: 44, borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(stat.color, 0.1), border: '1px solid', borderColor: alpha(stat.color, 0.15) }}>
+                                                <Icon sx={{ color: stat.color, fontSize: 22 }} />
                                             </Box>
                                             <Box>
-                                                <Typography variant="h6" fontWeight={700}>{stat.value}</Typography>
+                                                <Typography variant="h5" fontWeight={700} sx={{ lineHeight: 1.1 }}>{stat.value}</Typography>
                                                 <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
                                             </Box>
                                         </Stack>
@@ -285,22 +255,17 @@ export default function KuppiTutorsPage() {
                 </Grid>
             </MotionBox>
 
-            {/* Filters */}
-            <MotionCard variants={itemVariants} elevation={0} sx={{ mb: 4, borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                <CardContent sx={{ p: 2 }}>
+            {/* ══════════════  FILTERS  ══════════════ */}
+            <MotionCard variants={itemVariants} elevation={0} sx={{ mb: 4, borderRadius: 1, border: '1px solid', borderColor: 'divider', backdropFilter: 'blur(12px)', bgcolor: alpha(theme.palette.background.paper, 0.8) }}>
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                     <Stack spacing={2}>
-                        {/* Search Row */}
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
                             <TextField
-                                select
-                                size="small"
-                                value={searchType}
+                                select size="small" value={searchType}
                                 onChange={(e) => setSearchType(e.target.value as 'name' | 'subject')}
-                                sx={{ minWidth: 150 }}
+                                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
                             >
-                                {SEARCH_TYPE_OPTIONS.map((option) => (
-                                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-                                ))}
+                                {SEARCH_TYPE_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
                             </TextField>
                             <TextField
                                 placeholder={searchType === 'name' ? 'Search tutors by name...' : 'Search by subject (e.g., Mathematics)...'}
@@ -308,59 +273,32 @@ export default function KuppiTutorsPage() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 size="small"
-                                sx={{ flex: 1, maxWidth: { sm: 400 }, '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+                                sx={{ flex: 1, maxWidth: { sm: 400 }, '& .MuiOutlinedInput-root': { borderRadius: 1, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' } } }}
                                 slotProps={{
                                     input: {
-                                        startAdornment: (
-                                            <InputAdornment position="start">
-                                                <IconButton size="small" onClick={handleSearch} disabled={isLoading}>
-                                                    <SearchIcon sx={{ color: 'text.secondary' }} />
-                                                </IconButton>
-                                            </InputAdornment>
-                                        ),
-                                        endAdornment: searchQuery && (
-                                            <InputAdornment position="end">
-                                                <IconButton size="small" onClick={handleClearSearch}>
-                                                    <CloseIcon fontSize="small" />
-                                                </IconButton>
-                                            </InputAdornment>
-                                        )
+                                        startAdornment: <InputAdornment position="start"><IconButton size="small" onClick={handleSearch} disabled={isLoading}><SearchIcon sx={{ fontSize: 20, color: 'text.secondary' }} /></IconButton></InputAdornment>,
+                                        endAdornment: searchQuery && <InputAdornment position="end"><IconButton size="small" onClick={handleClearSearch}><CloseIcon fontSize="small" /></IconButton></InputAdornment>,
                                     }
                                 }}
                             />
                         </Stack>
-
-                        {/* Tabs and Faculty Filter */}
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between">
-                            <Tabs value={activeTab} onChange={handleTabChange} sx={{ minHeight: 40, '& .MuiTab-root': { minHeight: 40, textTransform: 'none' } }}>
-                                <Tab label="All Tutors" icon={<GroupsIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-                                <Tab label="Top Rated" icon={<TrendingUpIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+                            <Tabs value={activeTab} onChange={handleTabChange} sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem', borderRadius: 1, px: 2 }, '& .MuiTabs-indicator': { borderRadius: 1, height: 2 } }}>
+                                <Tab label="All Tutors" icon={<GroupsIcon sx={{ fontSize: 16 }} />} iconPosition="start" />
+                                <Tab label="Top Rated" icon={<TrendingUpIcon sx={{ fontSize: 16 }} />} iconPosition="start" />
                             </Tabs>
-
-                            <Stack direction="row" spacing={2} alignItems="center">
+                            <Stack direction="row" spacing={1.5} alignItems="center">
                                 <TextField
-                                    select
-                                    size="small"
-                                    value={selectedFaculty}
+                                    select size="small" value={selectedFaculty}
                                     onChange={(e) => handleFacultyChange(e.target.value as Faculty | 'ALL')}
-                                    sx={{ minWidth: 150 }}
-                                    slotProps={{
-                                        input: {
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <FilterListIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                                                </InputAdornment>
-                                            )
-                                        }
-                                    }}
+                                    sx={{ minWidth: 150, '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+                                    slotProps={{ input: { startAdornment: <InputAdornment position="start"><FilterListIcon sx={{ fontSize: 16, color: 'text.secondary' }} /></InputAdornment> } }}
                                 >
-                                    {FACULTY_OPTIONS.map((option) => (
-                                        <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-                                    ))}
+                                    {FACULTY_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
                                 </TextField>
                                 <Tooltip title="Refresh">
-                                    <IconButton onClick={handleRefresh} disabled={isLoading}>
-                                        <RefreshIcon />
+                                    <IconButton onClick={handleRefresh} disabled={isLoading} size="small" sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, '&:hover': { borderColor: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.05) } }}>
+                                        <RefreshIcon fontSize="small" />
                                     </IconButton>
                                 </Tooltip>
                             </Stack>
@@ -369,12 +307,13 @@ export default function KuppiTutorsPage() {
                 </CardContent>
             </MotionCard>
 
-            {/* Tutors Grid */}
+            {/* ══════════════  TUTORS GRID  ══════════════ */}
             {isLoading ? (
                 <Grid container spacing={3}>
                     {[...Array(6)].map((_, i) => (
                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
-                            <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+                            <Card elevation={0} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+                                <Skeleton variant="rectangular" height={4} />
                                 <CardContent sx={{ p: 3 }}>
                                     <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
                                         <Skeleton variant="circular" width={56} height={56} />
@@ -383,180 +322,148 @@ export default function KuppiTutorsPage() {
                                             <Skeleton variant="text" width="40%" />
                                         </Box>
                                     </Stack>
-                                    <Skeleton variant="rectangular" height={60} sx={{ borderRadius: 1 }} />
+                                    <Skeleton variant="rounded" height={48} sx={{ borderRadius: 1 }} />
                                 </CardContent>
                             </Card>
                         </Grid>
                     ))}
                 </Grid>
             ) : displayStudents.length === 0 ? (
-                <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                    <PersonIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary" gutterBottom>No tutors found</Typography>
-                    <Typography variant="body2" color="text.secondary">Try adjusting your search criteria or filters</Typography>
+                <Paper elevation={0} sx={{ p: 8, textAlign: 'center', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ width: 80, height: 80, borderRadius: '50%', bgcolor: alpha(theme.palette.primary.main, 0.08), display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
+                        <PersonIcon sx={{ fontSize: 40, color: alpha(theme.palette.primary.main, 0.4) }} />
+                    </Box>
+                    <Typography variant="h6" fontWeight={600} gutterBottom>No Tutors Found</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 340, mx: 'auto' }}>Try adjusting your search criteria or filters.</Typography>
                 </Paper>
             ) : (
                 <Grid container spacing={3}>
                     <AnimatePresence mode="popLayout">
-                        {displayStudents.map((student, index) => (
-                            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={student.id}>
-                                <MotionCard
-                                    variants={itemVariants}
-                                    initial="hidden"
-                                    animate="show"
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    transition={{ delay: index * 0.05 }}
-                                    elevation={0}
-                                    sx={{
-                                        borderRadius: 2,
-                                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        height: '100%',
-                                        '&:hover': {
-                                            borderColor: theme.palette.primary.main,
-                                            transform: 'translateY(-4px)',
-                                            boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.15)}`,
-                                        }
-                                    }}
-                                    onClick={() => handleTutorClick(student)}
-                                >
-                                    <CardContent sx={{ p: 3 }}>
-                                        <Stack spacing={2}>
-                                            {/* Header with Avatar and Name */}
-                                            <Stack direction="row" spacing={2} alignItems="center">
-                                                <Avatar
-                                                    src={student.profilePictureUrl || undefined}
-                                                    sx={{
-                                                        width: 56,
-                                                        height: 56,
-                                                        bgcolor: alpha(theme.palette.primary.main, 0.15),
-                                                        color: 'primary.main',
-                                                        fontWeight: 700,
-                                                        fontSize: '1.25rem',
-                                                    }}
-                                                >
-                                                    {getInitials(student.fullName)}
-                                                </Avatar>
-                                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                    <Typography variant="subtitle1" fontWeight={600} noWrap>
-                                                        {student.fullName}
+                        {displayStudents.map((student, index) => {
+                            const expColor = EXPERIENCE_COLORS[student.kuppiExperienceLevel] || '#6B7280';
+                            const rating = student.kuppiRating ?? 0;
+                            return (
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={student.id}>
+                                    <MotionCard
+                                        variants={itemVariants}
+                                        initial="hidden"
+                                        animate="show"
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        transition={{ delay: index * 0.04 }}
+                                        elevation={0}
+                                        onClick={() => handleTutorClick(student)}
+                                        sx={{
+                                            borderRadius: 1,
+                                            border: '1px solid',
+                                            borderColor: 'divider',
+                                            cursor: 'pointer',
+                                            overflow: 'hidden',
+                                            height: '100%',
+                                            transition: 'all 0.25s ease',
+                                            '&:hover': {
+                                                borderColor: 'primary.main',
+                                                transform: 'translateY(-3px)',
+                                                boxShadow: `0 12px 32px ${alpha(theme.palette.primary.main, 0.15)}`,
+                                            },
+                                        }}
+                                    >
+                                        {/* Accent bar */}
+                                        <Box sx={{ height: 4, background: `linear-gradient(90deg, ${expColor}, ${alpha(expColor, 0.3)})` }} />
+
+                                        <CardContent sx={{ p: 3 }}>
+                                            <Stack spacing={2}>
+                                                {/* ── Avatar + Name ── */}
+                                                <Stack direction="row" spacing={2} alignItems="center">
+                                                    <Avatar
+                                                        src={student.profilePictureUrl || undefined}
+                                                        sx={{
+                                                            width: 56,
+                                                            height: 56,
+                                                            bgcolor: alpha(theme.palette.primary.main, 0.15),
+                                                            color: 'primary.main',
+                                                            fontWeight: 700,
+                                                            fontSize: '1.15rem',
+                                                            border: '3px solid',
+                                                            borderColor: alpha(theme.palette.primary.main, 0.2),
+                                                        }}
+                                                    >
+                                                        {getInitials(student.fullName)}
+                                                    </Avatar>
+                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                                                            <Typography variant="subtitle1" fontWeight={700} noWrap>{student.fullName}</Typography>
+                                                        </Stack>
+                                                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                                                            <SchoolIcon sx={{ fontSize: 13, color: 'text.disabled' }} />
+                                                            <Typography variant="caption" color="text.secondary" noWrap>{student.program}</Typography>
+                                                        </Stack>
+                                                    </Box>
+                                                </Stack>
+
+                                                {/* ── Experience + Faculty ── */}
+                                                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                                                    <Chip
+                                                        label={student.kuppiExperienceLevel}
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor: alpha(expColor, 0.1),
+                                                            color: expColor,
+                                                            fontWeight: 600,
+                                                            fontSize: '0.65rem',
+                                                            textTransform: 'capitalize',
+                                                            border: '1px solid',
+                                                            borderColor: alpha(expColor, 0.15),
+                                                        }}
+                                                    />
+                                                    <Chip label={student.faculty} size="small" sx={{ fontSize: '0.65rem', bgcolor: alpha(theme.palette.grey[500], 0.08), fontWeight: 500 }} />
+                                                </Stack>
+
+                                                <Divider />
+
+                                                {/* ── Subjects ── */}
+                                                <Box>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ mb: 0.75, display: 'block', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6rem' }}>
+                                                        Expertise
                                                     </Typography>
-                                                    <Stack direction="row" alignItems="center" spacing={0.5}>
-                                                        <SchoolIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                                                        <Typography variant="caption" color="text.secondary" noWrap>
-                                                            {student.program}
-                                                        </Typography>
+                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                                        {(student.kuppiSubjects ?? []).slice(0, 3).map((subject, idx) => (
+                                                            <Chip
+                                                                key={idx}
+                                                                icon={<CheckCircleIcon sx={{ fontSize: 12, color: 'primary.main !important' }} />}
+                                                                label={subject}
+                                                                size="small"
+                                                                sx={{ fontSize: '0.65rem', bgcolor: alpha(theme.palette.primary.main, 0.06), color: 'primary.main', fontWeight: 500, '& .MuiChip-icon': { color: 'primary.main' } }}
+                                                            />
+                                                        ))}
+                                                        {(student.kuppiSubjects ?? []).length > 3 && (
+                                                            <Chip
+                                                                label={`+${(student.kuppiSubjects ?? []).length - 3} more`}
+                                                                size="small"
+                                                                sx={{ fontSize: '0.65rem', fontWeight: 500, bgcolor: alpha(theme.palette.grey[500], 0.08) }}
+                                                            />
+                                                        )}
                                                     </Stack>
                                                 </Box>
                                             </Stack>
-
-                                            {/* Rating and Sessions */}
-                                            <Stack direction="row" spacing={2} justifyContent="space-between">
-                                                <Stack direction="row" alignItems="center" spacing={0.5}>
-                                                    <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
-                                                    <Typography variant="body2" fontWeight={600}>{(student.kuppiRating ?? 0).toFixed(1)}</Typography>
-                                                </Stack>
-                                                <Stack direction="row" alignItems="center" spacing={0.5}>
-                                                    <EmojiEventsIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                                                    <Typography variant="body2" color="text.secondary">{student.kuppiSessionsCompleted ?? 0} sessions</Typography>
-                                                </Stack>
-                                                <Stack direction="row" alignItems="center" spacing={0.5}>
-                                                    <VisibilityIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                                                    <Typography variant="body2" color="text.secondary">{student.totalViews ?? 0}</Typography>
-                                                </Stack>
-                                            </Stack>
-
-                                            {/* Experience Level */}
-                                            <Chip
-                                                label={student.kuppiExperienceLevel}
-                                                size="small"
-                                                sx={{
-                                                    alignSelf: 'flex-start',
-                                                    bgcolor: alpha(EXPERIENCE_COLORS[student.kuppiExperienceLevel] || '#6B7280', 0.1),
-                                                    color: EXPERIENCE_COLORS[student.kuppiExperienceLevel] || '#6B7280',
-                                                    fontWeight: 500,
-                                                    textTransform: 'capitalize',
-                                                }}
-                                            />
-
-                                            {/* Subjects */}
-                                            <Box>
-                                                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                                                    Subjects:
-                                                </Typography>
-                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                    {(student.kuppiSubjects ?? []).slice(0, 3).map((subject, idx) => (
-                                                        <Chip
-                                                            key={idx}
-                                                            label={subject}
-                                                            size="small"
-                                                            variant="outlined"
-                                                            sx={{ fontSize: '0.7rem' }}
-                                                        />
-                                                    ))}
-                                                    {(student.kuppiSubjects ?? []).length > 3 && (
-                                                        <Chip
-                                                            label={`+${(student.kuppiSubjects ?? []).length - 3}`}
-                                                            size="small"
-                                                            variant="outlined"
-                                                            sx={{ fontSize: '0.7rem' }}
-                                                        />
-                                                    )}
-                                                </Stack>
-                                            </Box>
-
-                                            {/* Faculty Badge */}
-                                            <Chip
-                                                label={student.faculty}
-                                                size="small"
-                                                sx={{
-                                                    alignSelf: 'flex-start',
-                                                    bgcolor: alpha(theme.palette.grey[500], 0.1),
-                                                    fontSize: '0.7rem',
-                                                }}
-                                            />
-                                        </Stack>
-                                    </CardContent>
-                                </MotionCard>
-                            </Grid>
-                        ))}
+                                        </CardContent>
+                                    </MotionCard>
+                                </Grid>
+                            );
+                        })}
                     </AnimatePresence>
                 </Grid>
             )}
 
-            {/* Pagination */}
+            {/* ── Pagination ── */}
             {!isLoading && totalPages > 1 && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                    <Pagination
-                        count={totalPages}
-                        page={page + 1}
-                        onChange={handlePageChange}
-                        color="primary"
-                        size="large"
-                        showFirstButton
-                        showLastButton
-                    />
+                    <Pagination count={totalPages} page={page + 1} onChange={handlePageChange} color="primary" size="large" showFirstButton showLastButton />
                 </Box>
             )}
 
-            {/* Snackbar */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={4000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-                <Alert
-                    severity={snackbar.severity}
-                    onClose={() => setSnackbar({ ...snackbar, open: false })}
-                    variant="filled"
-                    sx={{ borderRadius: 2 }}
-                >
-                    {snackbar.message}
-                </Alert>
+            <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+                <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} variant="filled" sx={{ borderRadius: 1 }}>{snackbar.message}</Alert>
             </Snackbar>
         </MotionBox>
     );
 }
-

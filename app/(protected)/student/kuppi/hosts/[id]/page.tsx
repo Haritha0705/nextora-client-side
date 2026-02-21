@@ -33,7 +33,7 @@ export default function HostDetailPage() {
         return (
             <Box sx={{ p: 4, textAlign: 'center' }}>
                 <Typography variant="h5" color="text.secondary" sx={{ mb: 2 }}>Host not found</Typography>
-                <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/student/kuppi/hosts')} variant="outlined" sx={{ borderRadius: 2, textTransform: 'none' }}>Back to Hosts</Button>
+                <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/student/kuppi/hosts')} variant="outlined" sx={{ borderRadius: 1, textTransform: 'none' }}>Back to Hosts</Button>
             </Box>
         );
     }
@@ -42,7 +42,7 @@ export default function HostDetailPage() {
         <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
             <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/student/kuppi/hosts')} sx={{ mb: 3, color: 'text.secondary', textTransform: 'none' }}>Back to Hosts</Button>
 
-            <MotionCard initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
+            <MotionCard initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 3 }}>
                 <CardContent sx={{ p: 4 }}>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
                         <Avatar sx={{ width: 100, height: 100, bgcolor: alpha(theme.palette.primary.main, 0.15), color: 'primary.main', fontWeight: 700, fontSize: '2rem' }}>{getTutorInitials(host.name)}</Avatar>
@@ -58,7 +58,7 @@ export default function HostDetailPage() {
                                 onClick={() => setIsMessageModalOpen(true)}
                                 sx={{
                                     mt: 2,
-                                    borderRadius: 2,
+                                    borderRadius: 1,
                                     textTransform: 'none',
                                     fontWeight: 600,
                                 }}
@@ -119,7 +119,7 @@ export default function HostDetailPage() {
                     <Grid container spacing={2}>
                         {hostSessions.map((session, index) => (
                             <Grid size={{ xs: 12, sm: 6 }} key={session.id}>
-                                <MotionCard initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }} whileHover={{ y: -2 }} onClick={() => router.push(`/student/kuppi/${session.id}`)} sx={{ borderRadius: 2, cursor: 'pointer', border: '1px solid', borderColor: 'divider', '&:hover': { borderColor: 'primary.main' } }}>
+                                <MotionCard initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }} whileHover={{ y: -2 }} onClick={() => router.push(`/student/kuppi/${session.id}`)} sx={{ borderRadius: 1, cursor: 'pointer', border: '1px solid', borderColor: 'divider', '&:hover': { borderColor: 'primary.main' } }}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
                                             <Chip label={session.subject} size="small" sx={{ fontSize: '0.7rem' }} />
@@ -133,7 +133,7 @@ export default function HostDetailPage() {
                         ))}
                     </Grid>
                 ) : (
-                    <Card sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                    <Card sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                         <CardContent sx={{ textAlign: 'center', py: 4 }}>
                             <AutoStoriesIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
                             <Typography variant="body2" color="text.secondary">No sessions available</Typography>

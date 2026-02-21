@@ -6,4 +6,3 @@ export { useForgotPassword } from './useForgotPassword';
 export { useDashboard } from './useDashboard';
 export { usePWA } from './usePWA';
 export { usePushNotifications } from './usePushNotifications';
-export { useKuppiReviews } from './useKuppiReviews';

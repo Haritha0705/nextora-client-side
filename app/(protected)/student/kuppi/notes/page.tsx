@@ -3,33 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Box,
-    Typography,
-    Button,
-    alpha,
-    useTheme,
-    Grid,
-    Card,
-    CardContent,
-    Stack,
-    TextField,
-    InputAdornment,
-    IconButton,
-    Chip,
-    Avatar,
-    CircularProgress,
-    Snackbar,
-    Alert,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Tabs,
-    Tab,
-    Paper,
-    Tooltip,
-    Skeleton,
-    TablePagination,
+    Box, Typography, Button, alpha, useTheme, Grid, Card, CardContent, Stack,
+    TextField, InputAdornment, IconButton, Chip, Avatar, CircularProgress,
+    Snackbar, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
+    Tabs, Tab, Paper, Tooltip, Skeleton, TablePagination, Divider,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import SearchIcon from '@mui/icons-material/Search';
@@ -44,50 +21,27 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FolderIcon from '@mui/icons-material/Folder';
 import ArticleIcon from '@mui/icons-material/Article';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
-    fetchNotes,
-    fetchMyNotes,
-    fetchNoteById,
-    uploadNoteAsync,
-    searchNotesAsync,
-    checkIsKuppiStudentAsync,
-    selectKuppiNotes,
-    selectKuppiMyNotes,
-    selectKuppiSelectedNote,
-    selectKuppiTotalNotes,
-    selectKuppiIsKuppiStudent,
-    selectKuppiIsNoteLoading,
-    selectKuppiIsCreating,
-    selectKuppiError,
-    selectKuppiSuccessMessage,
-    clearKuppiError,
-    clearKuppiSuccessMessage,
-    clearKuppiSelectedNote,
-    setKuppiCurrentPage,
-    setKuppiPageSize,
-    selectKuppiCurrentPage,
-    selectKuppiPageSize,
+    fetchNotes, fetchMyNotes, uploadNoteAsync, searchNotesAsync,
+    checkIsKuppiStudentAsync, selectKuppiNotes, selectKuppiMyNotes,
+    selectKuppiTotalNotes, selectKuppiIsKuppiStudent,
+    selectKuppiIsNoteLoading, selectKuppiIsCreating, selectKuppiError,
+    selectKuppiSuccessMessage, clearKuppiError, clearKuppiSuccessMessage,
+    setKuppiCurrentPage, setKuppiPageSize,
+    selectKuppiCurrentPage, selectKuppiPageSize,
     KuppiNoteResponse,
-    CreateKuppiNoteRequest,
 } from '@/features/kuppi';
 import * as kuppiServices from '@/features/kuppi/services';
 
 const MotionBox = motion.create(Box);
 const MotionCard = motion.create(Card);
 
-const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
-};
+const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
+const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
 
-const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
-};
-
-// Get file icon based on type
 const getFileIcon = (fileType: string, size: number = 24, color: string = '#6B7280') => {
     const type = fileType?.toLowerCase() || '';
     if (type.includes('pdf')) return <PictureAsPdfIcon sx={{ color, fontSize: size }} />;
@@ -95,7 +49,6 @@ const getFileIcon = (fileType: string, size: number = 24, color: string = '#6B72
     return <InsertDriveFileIcon sx={{ color, fontSize: size }} />;
 };
 
-// Get file color based on type
 const getFileColor = (fileType: string) => {
     const type = fileType?.toLowerCase() || '';
     if (type.includes('pdf')) return '#EF4444';
@@ -110,10 +63,8 @@ export default function KuppiNotesPage() {
     const theme = useTheme();
     const dispatch = useAppDispatch();
 
-    // Redux state
     const notes = useAppSelector(selectKuppiNotes);
     const myNotes = useAppSelector(selectKuppiMyNotes);
-    const selectedNote = useAppSelector(selectKuppiSelectedNote);
     const totalNotes = useAppSelector(selectKuppiTotalNotes);
     const isKuppiStudent = useAppSelector(selectKuppiIsKuppiStudent);
     const isLoading = useAppSelector(selectKuppiIsNoteLoading);
@@ -122,150 +73,61 @@ export default function KuppiNotesPage() {
     const successMessage = useAppSelector(selectKuppiSuccessMessage);
     const page = useAppSelector(selectKuppiCurrentPage);
     const reduxPageSize = useAppSelector(selectKuppiPageSize);
-
-    // Use default page size if not set
     const pageSize = reduxPageSize || 10;
 
-    // Local state
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState(0);
-    const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-
-    // Upload form state
-    const [uploadForm, setUploadForm] = useState({
-        title: '',
-        description: '',
-        sessionId: '',
-        allowDownload: true,
-        file: null as File | null,
-    });
+    const [uploadForm, setUploadForm] = useState({ title: '', description: '', sessionId: '', allowDownload: true, file: null as File | null });
     const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
 
-    // Fetch notes and check Kuppi student status on mount
-    useEffect(() => {
-        dispatch(checkIsKuppiStudentAsync());
-        dispatch(fetchNotes({ page: 0, size: pageSize }));
-    }, [dispatch]); // Remove pageSize dependency to prevent re-fetching on pageSize change
-
-    // Get current notes based on tab
+    useEffect(() => { dispatch(checkIsKuppiStudentAsync()); dispatch(fetchNotes({ page: 0, size: pageSize })); }, [dispatch]);
     const currentNotes = activeTab === 1 ? myNotes : notes;
 
-    // Handle tab change
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-        setActiveTab(newValue);
-        dispatch(setKuppiCurrentPage(0));
-        if (newValue === 0) {
-            dispatch(fetchNotes({ page: 0, size: pageSize }));
-        } else if (newValue === 1 && isKuppiStudent) {
-            dispatch(fetchMyNotes({ page: 0, size: pageSize }));
-        }
+        setActiveTab(newValue); dispatch(setKuppiCurrentPage(0));
+        if (newValue === 0) dispatch(fetchNotes({ page: 0, size: pageSize }));
+        else if (newValue === 1 && isKuppiStudent) dispatch(fetchMyNotes({ page: 0, size: pageSize }));
     };
 
-    // Handle search
     const handleSearch = useCallback(() => {
-        if (searchQuery.trim()) {
-            dispatch(searchNotesAsync({ keyword: searchQuery, page: 0, size: pageSize }));
-        } else {
-            dispatch(fetchNotes({ page: 0, size: pageSize }));
-        }
+        if (searchQuery.trim()) dispatch(searchNotesAsync({ keyword: searchQuery, page: 0, size: pageSize }));
+        else dispatch(fetchNotes({ page: 0, size: pageSize }));
     }, [dispatch, searchQuery, pageSize]);
 
-    // Handle refresh
     const handleRefresh = () => {
-        if (activeTab === 0) {
-            dispatch(fetchNotes({ page, size: pageSize }));
-        } else if (activeTab === 1) {
-            dispatch(fetchMyNotes({ page, size: pageSize }));
-        }
+        if (activeTab === 0) dispatch(fetchNotes({ page, size: pageSize }));
+        else if (activeTab === 1) dispatch(fetchMyNotes({ page, size: pageSize }));
     };
 
-    // Handle view note
-    const handleViewNote = (note: KuppiNoteResponse) => {
-        dispatch(fetchNoteById(note.id));
-        setViewDialogOpen(true);
-    };
+    const handleViewNote = (note: KuppiNoteResponse) => { router.push(`/student/kuppi/notes/${note.id}`); };
 
-    // Handle download note
     const handleDownloadNote = async (note: KuppiNoteResponse) => {
         try {
-            // First record the download
             await kuppiServices.recordNoteDownload(note.id);
-            // Then download the file
             const blob = await kuppiServices.downloadNoteFile(note.id);
             const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = note.fileName || 'download';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            const a = document.createElement('a'); a.href = url; a.download = note.fileName || 'download';
+            document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a);
             setSnackbar({ open: true, message: 'Download started', severity: 'success' });
-        } catch (err) {
-            setSnackbar({ open: true, message: 'Download failed', severity: 'error' });
-        }
+        } catch { setSnackbar({ open: true, message: 'Download failed', severity: 'error' }); }
     };
 
-    // Handle upload dialog
-    const handleOpenUploadDialog = () => {
-        setUploadForm({ title: '', description: '', sessionId: '', allowDownload: true, file: null });
-        setUploadErrors({});
-        setUploadDialogOpen(true);
-    };
-
-    // Handle file change
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0] || null;
-        setUploadForm(prev => ({ ...prev, file }));
-        if (uploadErrors.file) setUploadErrors(prev => ({ ...prev, file: '' }));
-    };
-
-    // Validate upload form
-    const validateUploadForm = (): boolean => {
-        const errors: Record<string, string> = {};
-        if (!uploadForm.title.trim()) errors.title = 'Title is required';
-        if (!uploadForm.file) errors.file = 'File is required';
-        setUploadErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
-
-    // Handle upload submit
+    const handleOpenUploadDialog = () => { setUploadForm({ title: '', description: '', sessionId: '', allowDownload: true, file: null }); setUploadErrors({}); setUploadDialogOpen(true); };
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { setUploadForm(prev => ({ ...prev, file: e.target.files?.[0] || null })); if (uploadErrors.file) setUploadErrors(prev => ({ ...prev, file: '' })); };
+    const validateUploadForm = (): boolean => { const errors: Record<string, string> = {}; if (!uploadForm.title.trim()) errors.title = 'Title is required'; if (!uploadForm.file) errors.file = 'File is required'; setUploadErrors(errors); return Object.keys(errors).length === 0; };
     const handleUploadSubmit = () => {
         if (!validateUploadForm()) return;
-
-        const data: CreateKuppiNoteRequest = {
-            title: uploadForm.title,
-            description: uploadForm.description || undefined,
-            sessionId: uploadForm.sessionId ? parseInt(uploadForm.sessionId) : undefined,
-            allowDownload: uploadForm.allowDownload,
-            file: uploadForm.file!,
-        };
-
-        dispatch(uploadNoteAsync(data));
+        dispatch(uploadNoteAsync({ title: uploadForm.title, description: uploadForm.description || undefined, sessionId: uploadForm.sessionId ? parseInt(uploadForm.sessionId) : undefined, allowDownload: uploadForm.allowDownload, file: uploadForm.file! }));
         setUploadDialogOpen(false);
     };
 
-    // Handle messages
     useEffect(() => {
-        if (error) {
-            setSnackbar({ open: true, message: error, severity: 'error' });
-            dispatch(clearKuppiError());
-        }
-        if (successMessage) {
-            setSnackbar({ open: true, message: successMessage, severity: 'success' });
-            dispatch(clearKuppiSuccessMessage());
-            // Refresh notes after successful action
-            if (activeTab === 0) {
-                dispatch(fetchNotes({ page, size: pageSize }));
-            } else if (activeTab === 1) {
-                dispatch(fetchMyNotes({ page, size: pageSize }));
-            }
-        }
+        if (error) { setSnackbar({ open: true, message: error, severity: 'error' }); dispatch(clearKuppiError()); }
+        if (successMessage) { setSnackbar({ open: true, message: successMessage, severity: 'success' }); dispatch(clearKuppiSuccessMessage()); if (activeTab === 0) dispatch(fetchNotes({ page, size: pageSize })); else if (activeTab === 1) dispatch(fetchMyNotes({ page, size: pageSize })); }
     }, [error, successMessage, dispatch, activeTab, page, pageSize]);
 
-    // Stats
     const stats = [
         { label: 'Total Notes', value: totalNotes, icon: FolderIcon, color: '#3B82F6' },
         { label: 'My Notes', value: myNotes.length, icon: DescriptionIcon, color: '#10B981' },
@@ -273,41 +135,42 @@ export default function KuppiNotesPage() {
 
     return (
         <MotionBox variants={containerVariants} initial="hidden" animate="show" sx={{ maxWidth: 1400, mx: 'auto' }}>
-            {/* Header */}
+            {/* ── Header ── */}
             <MotionBox variants={itemVariants} sx={{ mb: 4 }}>
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-                    <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/student/kuppi')} sx={{ textTransform: 'none' }}>
-                        Back to Sessions
-                    </Button>
-                </Stack>
+                <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/student/kuppi')} sx={{ mb: 2, textTransform: 'none', color: 'text.secondary', fontWeight: 600, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.05) } }}>
+                    Back to Sessions
+                </Button>
                 <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
                     <Box>
-                        <Typography variant="h4" fontWeight={700} gutterBottom>Study Notes</Typography>
+                        <Typography variant="h4" fontWeight={700} gutterBottom sx={{ letterSpacing: '-0.02em' }}>Study Notes</Typography>
                         <Typography variant="body2" color="text.secondary">Browse and download study materials shared by Kuppi hosts</Typography>
                     </Box>
                     {isKuppiStudent && (
-                        <Button variant="contained" startIcon={<CloudUploadIcon />} onClick={handleOpenUploadDialog} sx={{ borderRadius: 2 }}>
+                        <Button
+                            variant="contained" startIcon={<CloudUploadIcon />} onClick={handleOpenUploadDialog}
+                            sx={{ borderRadius: 1, textTransform: 'none', fontWeight: 700, boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}`, '&:hover': { boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.5)}` } }}
+                        >
                             Upload Note
                         </Button>
                     )}
                 </Stack>
             </MotionBox>
 
-            {/* Stats */}
+            {/* ── Stats ── */}
             <MotionBox variants={itemVariants} sx={{ mb: 4 }}>
                 <Grid container spacing={2}>
-                    {stats.map((stat, index) => {
+                    {stats.map((stat, idx) => {
                         const Icon = stat.icon;
                         return (
-                            <Grid size={{ xs: 6, sm: 3 }} key={index}>
-                                <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                                    <CardContent sx={{ p: 2 }}>
+                            <Grid size={{ xs: 6, sm: 3 }} key={idx}>
+                                <Card elevation={0} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', transition: 'all 0.2s', '&:hover': { borderColor: stat.color, boxShadow: `0 4px 16px ${alpha(stat.color, 0.15)}` } }}>
+                                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                                         <Stack direction="row" alignItems="center" spacing={1.5}>
-                                            <Box sx={{ width: 40, height: 40, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(stat.color, 0.1) }}>
-                                                <Icon sx={{ color: stat.color, fontSize: 20 }} />
+                                            <Box sx={{ width: 44, height: 44, borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(stat.color, 0.1), border: '1px solid', borderColor: alpha(stat.color, 0.15) }}>
+                                                <Icon sx={{ color: stat.color, fontSize: 22 }} />
                                             </Box>
                                             <Box>
-                                                <Typography variant="h6" fontWeight={700}>{stat.value}</Typography>
+                                                <Typography variant="h5" fontWeight={700} sx={{ lineHeight: 1.1 }}>{stat.value}</Typography>
                                                 <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
                                             </Box>
                                         </Stack>
@@ -319,31 +182,24 @@ export default function KuppiNotesPage() {
                 </Grid>
             </MotionBox>
 
-            {/* Filters */}
-            <MotionCard variants={itemVariants} elevation={0} sx={{ mb: 4, borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                <CardContent sx={{ p: 2 }}>
+            {/* ── Filters ── */}
+            <MotionCard variants={itemVariants} elevation={0} sx={{ mb: 4, borderRadius: 1, border: '1px solid', borderColor: 'divider', backdropFilter: 'blur(12px)', bgcolor: alpha(theme.palette.background.paper, 0.8) }}>
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between">
                         <TextField
-                            placeholder="Search notes..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            size="small"
-                            sx={{ maxWidth: { sm: 300 }, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                            slotProps={{
-                                input: {
-                                    startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary' }} /></InputAdornment>,
-                                }
-                            }}
+                            placeholder="Search notes..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()} size="small"
+                            sx={{ maxWidth: { sm: 320 }, '& .MuiOutlinedInput-root': { borderRadius: 1, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' } } }}
+                            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 20, color: 'text.secondary' }} /></InputAdornment> } }}
                         />
-                        <Stack direction="row" spacing={2} alignItems="center">
-                            <Tabs value={activeTab} onChange={handleTabChange} sx={{ minHeight: 40, '& .MuiTab-root': { minHeight: 40, textTransform: 'none' } }}>
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Tabs value={activeTab} onChange={handleTabChange} sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem', borderRadius: 1, px: 2 }, '& .MuiTabs-indicator': { borderRadius: 1, height: 2 } }}>
                                 <Tab label="All Notes" />
                                 {isKuppiStudent && <Tab label="My Notes" />}
                             </Tabs>
                             <Tooltip title="Refresh">
-                                <IconButton onClick={handleRefresh} disabled={isLoading}>
-                                    <RefreshIcon />
+                                <IconButton onClick={handleRefresh} disabled={isLoading} size="small" sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, '&:hover': { borderColor: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.05) } }}>
+                                    <RefreshIcon fontSize="small" />
                                 </IconButton>
                             </Tooltip>
                         </Stack>
@@ -351,258 +207,188 @@ export default function KuppiNotesPage() {
                 </CardContent>
             </MotionCard>
 
-            {/* Notes Grid */}
+            {/* ══════════════  NOTES GRID  ══════════════ */}
             {isLoading ? (
                 <Grid container spacing={3}>
-                    {[1, 2, 3, 4].map((i) => (
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
-                            <Skeleton variant="rounded" height={200} sx={{ borderRadius: 2 }} />
+                            <Card elevation={0} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+                                <Skeleton variant="rectangular" height={4} />
+                                <CardContent sx={{ p: 3 }}>
+                                    <Stack spacing={1.5}>
+                                        <Skeleton variant="rounded" width={48} height={48} />
+                                        <Skeleton variant="text" width="70%" height={24} />
+                                        <Skeleton variant="text" width="50%" />
+                                        <Skeleton variant="text" width="40%" />
+                                    </Stack>
+                                </CardContent>
+                            </Card>
                         </Grid>
                     ))}
                 </Grid>
             ) : error ? (
-                <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 2, border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`, bgcolor: alpha(theme.palette.error.main, 0.05) }}>
-                    <DescriptionIcon sx={{ fontSize: 60, color: 'error.main', mb: 2 }} />
+                <Paper elevation={0} sx={{ p: 8, textAlign: 'center', borderRadius: 1, border: '1px solid', borderColor: alpha(theme.palette.error.main, 0.2) }}>
+                    <Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: alpha(theme.palette.error.main, 0.08), display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
+                        <DescriptionIcon sx={{ fontSize: 32, color: alpha(theme.palette.error.main, 0.5) }} />
+                    </Box>
                     <Typography variant="h6" fontWeight={600} gutterBottom color="error">Failed to Load Notes</Typography>
-                    <Typography color="text.secondary" sx={{ mb: 2 }}>{error}</Typography>
-                    <Button variant="outlined" color="primary" onClick={handleRefresh}>
-                        Try Again
-                    </Button>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>{error}</Typography>
+                    <Button variant="outlined" color="primary" onClick={handleRefresh} sx={{ borderRadius: 1, textTransform: 'none', fontWeight: 600 }}>Try Again</Button>
                 </Paper>
             ) : currentNotes.length === 0 ? (
-                <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                    <DescriptionIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                <Paper elevation={0} sx={{ p: 8, textAlign: 'center', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ width: 80, height: 80, borderRadius: '50%', bgcolor: alpha(theme.palette.primary.main, 0.08), display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2.5 }}>
+                        <DescriptionIcon sx={{ fontSize: 40, color: alpha(theme.palette.primary.main, 0.4) }} />
+                    </Box>
                     <Typography variant="h6" fontWeight={600} gutterBottom>No Notes Found</Typography>
-                    <Typography color="text.secondary">
-                        {activeTab === 1 ? 'You haven\'t uploaded any notes yet.' : 'No notes available. Check back later!'}
+                    <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 340, mx: 'auto' }}>
+                        {activeTab === 1 ? "You haven't uploaded any notes yet." : 'No notes available. Check back later!'}
                     </Typography>
                 </Paper>
             ) : (
                 <Grid container spacing={3}>
-                    {currentNotes.map((note, index) => (
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={note.id}>
-                            <MotionCard
-                                variants={itemVariants}
-                                elevation={0}
-                                sx={{
-                                    borderRadius: 2,
-                                    border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                                    height: '100%',
-                                    transition: 'all 0.2s',
-                                    '&:hover': {
-                                        borderColor: theme.palette.primary.main,
-                                        transform: 'translateY(-2px)',
-                                        boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.15)}`,
-                                    }
-                                }}
-                            >
-                                <CardContent sx={{ p: 3 }}>
-                                    <Stack spacing={2}>
-                                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                                            <Box sx={{ width: 48, height: 48, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(getFileColor(note.fileType), 0.1) }}>
-                                                {getFileIcon(note.fileType, 24, getFileColor(note.fileType))}
-                                            </Box>
-                                            <Chip label={note.fileType?.toUpperCase() || 'FILE'} size="small" sx={{ bgcolor: alpha(getFileColor(note.fileType), 0.1), color: getFileColor(note.fileType) }} />
-                                        </Stack>
+                    {currentNotes.map((note, index) => {
+                        const fileColor = getFileColor(note.fileType);
+                        return (
+                            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={note.id}>
+                                <MotionCard
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                                    elevation={0}
+                                    onClick={() => handleViewNote(note)}
+                                    sx={{
+                                        borderRadius: 1, overflow: 'hidden', height: '100%',
+                                        border: '1px solid', borderColor: 'divider',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.25s ease',
+                                        '&:hover': { borderColor: 'primary.main', transform: 'translateY(-3px)', boxShadow: `0 12px 32px ${alpha(theme.palette.primary.main, 0.15)}` },
+                                    }}
+                                >
+                                    {/* File-type accent bar */}
+                                    <Box sx={{ height: 4, background: `linear-gradient(90deg, ${fileColor}, ${alpha(fileColor, 0.3)})` }} />
 
-                                        {/* Title */}
-                                        <Typography variant="h6" fontWeight={600} sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                            {note.title}
-                                        </Typography>
-
-                                        {/* Session */}
-                                        {note.sessionTitle && (
-                                            <Chip label={note.sessionTitle} size="small" variant="outlined" sx={{ alignSelf: 'flex-start' }} />
-                                        )}
-
-                                        {/* Stats */}
-                                        <Stack direction="row" spacing={2}>
-                                            <Stack direction="row" spacing={0.5} alignItems="center">
-                                                <VisibilityIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                                <Typography variant="caption" color="text.secondary">{note.viewCount ?? 0}</Typography>
+                                    <CardContent sx={{ p: 3 }}>
+                                        <Stack spacing={2}>
+                                            {/* Icon + Type */}
+                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                                                <Box sx={{ width: 48, height: 48, borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(fileColor, 0.1), border: '1px solid', borderColor: alpha(fileColor, 0.15) }}>
+                                                    {getFileIcon(note.fileType, 24, fileColor)}
+                                                </Box>
+                                                <Chip label={note.fileType?.toUpperCase() || 'FILE'} size="small" sx={{ bgcolor: alpha(fileColor, 0.1), color: fileColor, fontWeight: 600, fontSize: '0.65rem' }} />
                                             </Stack>
-                                            <Stack direction="row" spacing={0.5} alignItems="center">
-                                                <DownloadIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                                                <Typography variant="caption" color="text.secondary">{note.downloadCount ?? 0}</Typography>
+
+                                            <Typography variant="subtitle1" fontWeight={700} sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                {note.title}
+                                            </Typography>
+
+                                            {note.sessionTitle && <Chip label={note.sessionTitle} size="small" variant="outlined" sx={{ alignSelf: 'flex-start', fontSize: '0.65rem', borderColor: 'divider' }} />}
+
+                                            {/* Meta */}
+                                            <Stack direction="row" spacing={2}>
+                                                <Stack direction="row" spacing={0.5} alignItems="center">
+                                                    <VisibilityIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+                                                    <Typography variant="caption" color="text.secondary">{note.viewCount ?? 0}</Typography>
+                                                </Stack>
+                                                <Stack direction="row" spacing={0.5} alignItems="center">
+                                                    <DownloadIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+                                                    <Typography variant="caption" color="text.secondary">{note.downloadCount ?? 0}</Typography>
+                                                </Stack>
+                                                <Typography variant="caption" color="text.secondary">{note.formattedFileSize || 'N/A'}</Typography>
                                             </Stack>
-                                            <Typography variant="caption" color="text.secondary">{note.formattedFileSize || 'N/A'}</Typography>
-                                        </Stack>
 
-                                        {/* Uploader */}
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Avatar sx={{ width: 24, height: 24, bgcolor: theme.palette.primary.main, fontSize: '0.75rem' }}>
-                                                {note.uploaderName?.[0] || 'U'}
-                                            </Avatar>
-                                            <Typography variant="caption" color="text.secondary">{note.uploaderName || 'Unknown'}</Typography>
-                                        </Stack>
+                                            <Divider />
 
-                                        {/* Actions */}
-                                        <Stack direction="row" spacing={1}>
-                                            <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handleViewNote(note)} sx={{ flex: 1 }}>
-                                                View
-                                            </Button>
-                                            {note.allowDownload && (
-                                                <Button size="small" variant="contained" startIcon={<DownloadIcon />} onClick={() => handleDownloadNote(note)} sx={{ flex: 1 }}>
-                                                    Download
-                                                </Button>
-                                            )}
+                                            {/* Uploader */}
+                                            <Stack direction="row" alignItems="center" spacing={1}>
+                                                <Avatar sx={{ width: 24, height: 24, bgcolor: alpha(theme.palette.primary.main, 0.15), color: 'primary.main', fontSize: '0.65rem', fontWeight: 700 }}>
+                                                    {note.uploaderName?.[0]?.toUpperCase() || 'U'}
+                                                </Avatar>
+                                                <Typography variant="caption" color="text.secondary">{note.uploaderName || 'Unknown'}</Typography>
+                                            </Stack>
+
+                                            {/* Actions */}
+                                            <Stack direction="row" spacing={1}>
+                                                <Button size="small" startIcon={<OpenInNewIcon />} onClick={(e) => { e.stopPropagation(); handleViewNote(note); }} sx={{ flex: 1, borderRadius: 1, textTransform: 'none', fontWeight: 600, fontSize: '0.75rem' }}>View Details</Button>
+                                                {note.allowDownload && (
+                                                    <Button size="small" variant="contained" startIcon={<DownloadIcon />} onClick={(e) => { e.stopPropagation(); handleDownloadNote(note); }}
+                                                        sx={{ flex: 1, borderRadius: 1, textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', boxShadow: 'none', '&:hover': { boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}` } }}
+                                                    >Download</Button>
+                                                )}
+                                            </Stack>
                                         </Stack>
-                                    </Stack>
-                                </CardContent>
-                            </MotionCard>
-                        </Grid>
-                    ))}
+                                    </CardContent>
+                                </MotionCard>
+                            </Grid>
+                        );
+                    })}
                 </Grid>
             )}
 
             {/* Pagination */}
             {currentNotes.length > 0 && (
-                <TablePagination
-                    component="div"
-                    count={totalNotes}
-                    page={page}
-                    onPageChange={(_, p) => {
-                        dispatch(setKuppiCurrentPage(p));
-                        if (activeTab === 0) dispatch(fetchNotes({ page: p, size: pageSize }));
-                        else dispatch(fetchMyNotes({ page: p, size: pageSize }));
-                    }}
+                <TablePagination component="div" count={totalNotes} page={page}
+                    onPageChange={(_, p) => { dispatch(setKuppiCurrentPage(p)); if (activeTab === 0) dispatch(fetchNotes({ page: p, size: pageSize })); else dispatch(fetchMyNotes({ page: p, size: pageSize })); }}
                     rowsPerPage={pageSize}
-                    onRowsPerPageChange={(e) => {
-                        dispatch(setKuppiPageSize(parseInt(e.target.value, 10)));
-                        dispatch(setKuppiCurrentPage(0));
-                    }}
-                    rowsPerPageOptions={[6, 12, 24]}
-                    sx={{ mt: 3 }}
+                    onRowsPerPageChange={(e) => { dispatch(setKuppiPageSize(parseInt(e.target.value, 10))); dispatch(setKuppiCurrentPage(0)); }}
+                    rowsPerPageOptions={[6, 12, 24]} sx={{ mt: 3, '& .MuiTablePagination-toolbar': { borderRadius: 1 } }}
                 />
             )}
 
-            {/* View Note Dialog */}
-            <Dialog open={viewDialogOpen} onClose={() => { setViewDialogOpen(false); dispatch(clearKuppiSelectedNote()); }} maxWidth="sm" fullWidth>
-                <DialogTitle>
+
+            {/* ── Upload Dialog ── */}
+            <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
+                <DialogTitle sx={{ pb: 1 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="h6" fontWeight={600}>Note Details</Typography>
-                        <IconButton onClick={() => { setViewDialogOpen(false); dispatch(clearKuppiSelectedNote()); }} size="small"><CloseIcon /></IconButton>
-                    </Stack>
-                </DialogTitle>
-                <DialogContent dividers>
-                    {isLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
-                    ) : selectedNote ? (
-                        <Stack spacing={3}>
-                            <Stack direction="row" spacing={2} alignItems="flex-start">
-                                <Box sx={{ width: 64, height: 64, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(getFileColor(selectedNote.fileType), 0.1) }}>
-                                    {getFileIcon(selectedNote.fileType, 32, getFileColor(selectedNote.fileType))}
-                                </Box>
-                                <Box sx={{ flex: 1 }}>
-                                    <Typography variant="h6" fontWeight={600}>{selectedNote.title}</Typography>
-                                    <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                                        <Chip label={selectedNote.fileType?.toUpperCase() || 'FILE'} size="small" />
-                                        <Chip label={selectedNote.formattedFileSize} size="small" variant="outlined" />
-                                    </Stack>
-                                </Box>
-                            </Stack>
-
-                            {selectedNote.description && (
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Description</Typography>
-                                    <Typography variant="body2">{selectedNote.description}</Typography>
-                                </Box>
-                            )}
-
-                            {selectedNote.sessionTitle && (
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Related Session</Typography>
-                                    <Typography variant="body2">{selectedNote.sessionTitle}</Typography>
-                                </Box>
-                            )}
-
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 6 }}>
-                                    <Typography variant="caption" color="text.secondary">Views</Typography>
-                                    <Typography variant="body1" fontWeight={600}>{selectedNote.viewCount}</Typography>
-                                </Grid>
-                                <Grid size={{ xs: 6 }}>
-                                    <Typography variant="caption" color="text.secondary">Downloads</Typography>
-                                    <Typography variant="body1" fontWeight={600}>{selectedNote.downloadCount}</Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography variant="caption" color="text.secondary">Uploaded by</Typography>
-                                    <Typography variant="body1">{selectedNote.uploaderName}</Typography>
-                                </Grid>
-                            </Grid>
-                        </Stack>
-                    ) : null}
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => { setViewDialogOpen(false); dispatch(clearKuppiSelectedNote()); }}>Close</Button>
-                    {selectedNote?.allowDownload && (
-                        <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => handleDownloadNote(selectedNote)}>
-                            Download
-                        </Button>
-                    )}
-                </DialogActions>
-            </Dialog>
-
-            {/* Upload Note Dialog */}
-            <Dialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="h6" fontWeight={600}>Upload Note</Typography>
+                        <Typography variant="h6" fontWeight={700}>Upload Note</Typography>
                         <IconButton onClick={() => setUploadDialogOpen(false)} size="small"><CloseIcon /></IconButton>
                     </Stack>
                 </DialogTitle>
                 <DialogContent dividers>
-                    <Stack spacing={3} sx={{ pt: 1 }}>
-                        <TextField
-                            label="Title"
-                            fullWidth
-                            required
-                            value={uploadForm.title}
+                    <Stack spacing={2.5} sx={{ pt: 1 }}>
+                        <TextField label="Title" fullWidth required value={uploadForm.title}
                             onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
-                            error={!!uploadErrors.title}
-                            helperText={uploadErrors.title}
+                            error={!!uploadErrors.title} helperText={uploadErrors.title}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
                         />
-
-                        <TextField
-                            label="Description"
-                            fullWidth
-                            multiline
-                            rows={3}
-                            value={uploadForm.description}
+                        <TextField label="Description" fullWidth multiline rows={3} value={uploadForm.description}
                             onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
                         />
-
-                        <TextField
-                            label="Session ID (Optional)"
-                            fullWidth
-                            type="number"
-                            value={uploadForm.sessionId}
+                        <TextField label="Session ID (Optional)" fullWidth type="number" value={uploadForm.sessionId}
                             onChange={(e) => setUploadForm(prev => ({ ...prev, sessionId: e.target.value }))}
                             helperText="Link this note to a specific session"
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
                         />
-
                         <Box>
-                            <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />} fullWidth sx={{ py: 2 }}>
-                                {uploadForm.file ? uploadForm.file.name : 'Choose File'}
+                            <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />} fullWidth
+                                sx={{
+                                    py: 3, borderRadius: 1, borderStyle: 'dashed', borderWidth: 2,
+                                    textTransform: 'none', fontWeight: 600,
+                                    borderColor: uploadForm.file ? 'primary.main' : 'divider',
+                                    bgcolor: uploadForm.file ? alpha(theme.palette.primary.main, 0.04) : 'transparent',
+                                    '&:hover': { borderColor: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.04) },
+                                }}
+                            >
+                                {uploadForm.file ? uploadForm.file.name : 'Choose File or Drag & Drop'}
                                 <input type="file" hidden onChange={handleFileChange} />
                             </Button>
-                            {uploadErrors.file && (
-                                <Typography variant="caption" color="error">{uploadErrors.file}</Typography>
-                            )}
+                            {uploadErrors.file && <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>{uploadErrors.file}</Typography>}
                         </Box>
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
-                    <Button variant="contained" onClick={handleUploadSubmit} disabled={isCreating}>
+                    <Button onClick={() => setUploadDialogOpen(false)} sx={{ borderRadius: 1, textTransform: 'none' }}>Cancel</Button>
+                    <Button variant="contained" onClick={handleUploadSubmit} disabled={isCreating}
+                        sx={{ borderRadius: 1, textTransform: 'none', fontWeight: 700, boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}` }}
+                    >
                         {isCreating ? <CircularProgress size={20} /> : 'Upload'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Snackbar */}
             <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-                <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} variant="filled" sx={{ borderRadius: 2 }}>{snackbar.message}</Alert>
+                <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} variant="filled" sx={{ borderRadius: 1 }}>{snackbar.message}</Alert>
             </Snackbar>
         </MotionBox>
     );
