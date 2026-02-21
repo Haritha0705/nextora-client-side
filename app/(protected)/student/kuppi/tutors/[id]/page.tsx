@@ -19,6 +19,8 @@ import {
     Snackbar,
     Alert,
     Skeleton,
+    Tooltip,
+    LinearProgress,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -37,6 +39,11 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import BadgeIcon from '@mui/icons-material/Badge';
+import VerifiedIcon from '@mui/icons-material/Verified';
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import GroupIcon from '@mui/icons-material/Group';
+import TimerIcon from '@mui/icons-material/Timer';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
@@ -52,117 +59,60 @@ import {
 const MotionCard = motion.create(Card);
 const MotionBox = motion.create(Box);
 
-// Status colors
-const STATUS_COLORS: Record<SessionStatus, string> = {
-    SCHEDULED: '#3B82F6',
-    IN_PROGRESS: '#10B981',
-    COMPLETED: '#6B7280',
-    CANCELLED: '#EF4444',
+// ── Status Configuration ─────────────────
+const STATUS_CONFIG: Record<SessionStatus, { color: string; icon: React.ReactElement; pulse?: boolean }> = {
+    SCHEDULED: { color: '#3B82F6', icon: <EventIcon sx={{ fontSize: 14 }} /> },
+    IN_PROGRESS: { color: '#10B981', icon: <VideoCallIcon sx={{ fontSize: 14 }} />, pulse: true },
+    COMPLETED: { color: '#6B7280', icon: <CheckCircleIcon sx={{ fontSize: 14 }} /> },
+    CANCELLED: { color: '#EF4444', icon: <CancelIcon sx={{ fontSize: 14 }} /> },
 };
 
-// Get status icon
-const getStatusIcon = (status: SessionStatus): React.ReactElement | undefined => {
-    switch (status) {
-        case 'SCHEDULED': return <EventIcon sx={{ fontSize: 14 }} />;
-        case 'IN_PROGRESS': return <VideoCallIcon sx={{ fontSize: 14 }} />;
-        case 'COMPLETED': return <CheckCircleIcon sx={{ fontSize: 14 }} />;
-        case 'CANCELLED': return <CancelIcon sx={{ fontSize: 14 }} />;
-        default: return undefined;
-    }
-};
-
-// Experience level colors
-const EXPERIENCE_COLORS = {
+const EXPERIENCE_COLORS: Record<string, string> = {
     BEGINNER: '#10B981',
     INTERMEDIATE: '#3B82F6',
     ADVANCED: '#8B5CF6',
 };
 
-// Get initials from name
-const getInitials = (name: string): string => {
-    return name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-};
+const getInitials = (name: string): string =>
+    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-// Format date
-const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-};
+const formatDate = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
-// Format time
-const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-};
+const formatTime = (dateStr: string) =>
+    new Date(dateStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
 export default function TutorDetailPage() {
     const params = useParams();
     const router = useRouter();
     const theme = useTheme();
     const dispatch = useAppDispatch();
-
     const studentId = Number(params.id);
 
-    // Redux state
     const student = useAppSelector(selectSelectedKuppiStudent);
     const isLoading = useAppSelector(selectKuppiStudentDetailLoading);
     const error = useAppSelector(selectKuppiError);
-
-    // Local state
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'error' as 'success' | 'error' });
 
-    // Fetch student details on mount
     useEffect(() => {
-        if (studentId) {
-            dispatch(fetchKuppiStudentById(studentId));
-        }
-
-        return () => {
-            dispatch(clearSelectedKuppiStudent());
-        };
+        if (studentId) dispatch(fetchKuppiStudentById(studentId));
+        return () => { dispatch(clearSelectedKuppiStudent()); };
     }, [dispatch, studentId]);
 
-    // Handle error messages
     useEffect(() => {
-        if (error) {
-            setSnackbar({ open: true, message: error, severity: 'error' });
-            dispatch(clearKuppiError());
-        }
+        if (error) { setSnackbar({ open: true, message: error, severity: 'error' }); dispatch(clearKuppiError()); }
     }, [error, dispatch]);
 
-    // Loading state
+    /* ── Loading skeleton ── */
     if (isLoading) {
         return (
             <Box sx={{ maxWidth: 1000, mx: 'auto' }}>
-                <Button
-                    startIcon={<ArrowBackIcon />}
-                    onClick={() => router.push('/student/kuppi/tutors')}
-                    sx={{ mb: 3, color: 'text.secondary', textTransform: 'none' }}
-                >
-                    Back to Tutors
-                </Button>
-
-                <Card elevation={0} sx={{ borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, mb: 3 }}>
-                    <CardContent sx={{ p: 4 }}>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
-                            <Skeleton variant="circular" width={100} height={100} />
-                            <Box sx={{ flex: 1 }}>
-                                <Skeleton variant="text" width="50%" height={40} />
-                                <Skeleton variant="text" width="30%" />
-                            </Box>
-                        </Stack>
-                        <Divider sx={{ my: 3 }} />
-                        <Grid container spacing={3}>
-                            {[...Array(4)].map((_, i) => (
-                                <Grid size={{ xs: 6, sm: 3 }} key={i}>
-                                    <Skeleton variant="rectangular" height={60} sx={{ borderRadius: 1 }} />
-                                </Grid>
-                            ))}
+                <Skeleton variant="text" width={140} height={36} sx={{ mb: 2 }} />
+                <Card elevation={0} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', overflow: 'hidden', mb: 3 }}>
+                    <Skeleton variant="rectangular" height={200} />
+                    <CardContent sx={{ p: 3 }}>
+                        <Grid container spacing={2}>
+                            {[...Array(4)].map((_, i) => <Grid size={{ xs: 6, sm: 3 }} key={i}><Skeleton variant="rounded" height={70} sx={{ borderRadius: 1 }} /></Grid>)}
                         </Grid>
                     </CardContent>
                 </Card>
@@ -170,18 +120,16 @@ export default function TutorDetailPage() {
         );
     }
 
-    // Not found state
+    /* ── Not Found ── */
     if (!student && !isLoading) {
         return (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-                <PersonIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-                <Typography variant="h5" color="text.secondary" sx={{ mb: 2 }}>Tutor not found</Typography>
-                <Button
-                    startIcon={<ArrowBackIcon />}
-                    onClick={() => router.push('/student/kuppi/tutors')}
-                    variant="outlined"
-                    sx={{ borderRadius: 2, textTransform: 'none' }}
-                >
+            <Box sx={{ p: 6, textAlign: 'center' }}>
+                <Box sx={{ width: 80, height: 80, borderRadius: '50%', bgcolor: alpha(theme.palette.error.main, 0.08), display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
+                    <PersonIcon sx={{ fontSize: 40, color: alpha(theme.palette.error.main, 0.4) }} />
+                </Box>
+                <Typography variant="h5" fontWeight={700} gutterBottom>Tutor Not Found</Typography>
+                <Typography color="text.secondary" sx={{ mb: 3 }}>This tutor profile doesn't exist or has been removed.</Typography>
+                <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/student/kuppi/tutors')} variant="outlined" sx={{ borderRadius: 1, textTransform: 'none', fontWeight: 600 }}>
                     Back to Tutors
                 </Button>
             </Box>
@@ -190,177 +138,169 @@ export default function TutorDetailPage() {
 
     if (!student) return null;
 
+    const expColor = EXPERIENCE_COLORS[student.kuppiExperienceLevel] || '#6B7280';
+
     return (
-        <MotionBox
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            sx={{ maxWidth: 1000, mx: 'auto' }}
-        >
+        <MotionBox initial={{ opacity: 0 }} animate={{ opacity: 1 }} sx={{ maxWidth: 1000, mx: 'auto' }}>
+            {/* ── Back Button ── */}
             <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={() => router.push('/student/kuppi/tutors')}
-                sx={{ mb: 3, color: 'text.secondary', textTransform: 'none' }}
+                sx={{ mb: 3, color: 'text.secondary', textTransform: 'none', fontWeight: 600, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.05) } }}
             >
                 Back to Tutors
             </Button>
 
-            {/* Main Profile Card */}
+            {/* ══════════════  HERO PROFILE CARD  ══════════════ */}
             <MotionCard
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 elevation={0}
-                sx={{ borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, mb: 3 }}
+                sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 3, overflow: 'hidden' }}
             >
-                <CardContent sx={{ p: 4 }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="center">
+                {/* Gradient Banner */}
+                <Box
+                    sx={{
+                        height: 160,
+                        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 50%, #6366F1 100%)`,
+                        position: 'relative',
+                    }}
+                >
+                    <Box sx={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0)', backgroundSize: '20px 20px' }} />
+                </Box>
+
+                <CardContent sx={{ p: 3, pt: 0, mt: -8, position: 'relative', zIndex: 1 }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems={{ xs: 'center', sm: 'flex-end' }}>
                         <Avatar
                             src={student.profilePictureUrl || undefined}
                             sx={{
-                                width: 100,
-                                height: 100,
+                                width: 110,
+                                height: 110,
                                 bgcolor: alpha(theme.palette.primary.main, 0.15),
                                 color: 'primary.main',
                                 fontWeight: 700,
-                                fontSize: '2rem',
+                                fontSize: '2.2rem',
+                                border: '4px solid',
+                                borderColor: 'background.paper',
+                                boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.3)}`,
                             }}
                         >
                             {getInitials(student.fullName)}
                         </Avatar>
-                        <Box sx={{ flex: 1, textAlign: { xs: 'center', sm: 'left' } }}>
-                            <Typography variant="h4" fontWeight={700} sx={{ mb: 0.5 }}>
-                                {student.fullName}
-                            </Typography>
-                            <Stack direction="row" alignItems="center" spacing={0.5} justifyContent={{ xs: 'center', sm: 'flex-start' }}>
-                                <SchoolIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                                <Typography variant="body1" color="text.secondary">{student.program}</Typography>
+                        <Box sx={{ flex: 1, textAlign: { xs: 'center', sm: 'left' }, pb: 0.5 }}>
+                            <Stack direction="row" alignItems="center" spacing={1} justifyContent={{ xs: 'center', sm: 'flex-start' }}>
+                                <Typography variant="h4" fontWeight={700}>{student.fullName}</Typography>
+                                <VerifiedIcon sx={{ fontSize: 22, color: 'primary.main' }} />
                             </Stack>
-                            <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 1 }} justifyContent={{ xs: 'center', sm: 'flex-start' }}>
+                            <Stack direction="row" alignItems="center" spacing={0.5} justifyContent={{ xs: 'center', sm: 'flex-start' }} sx={{ mt: 0.5 }}>
+                                <SchoolIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                <Typography variant="body2" color="text.secondary">{student.program}</Typography>
+                            </Stack>
+                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.5 }} justifyContent={{ xs: 'center', sm: 'flex-start' }} flexWrap="wrap" useFlexGap>
                                 <Chip
                                     label={student.kuppiExperienceLevel}
                                     size="small"
                                     sx={{
-                                        bgcolor: alpha(EXPERIENCE_COLORS[student.kuppiExperienceLevel] || '#6B7280', 0.1),
-                                        color: EXPERIENCE_COLORS[student.kuppiExperienceLevel] || '#6B7280',
-                                        fontWeight: 500,
+                                        bgcolor: alpha(expColor, 0.1),
+                                        color: expColor,
+                                        fontWeight: 600,
                                         textTransform: 'capitalize',
+                                        border: '1px solid',
+                                        borderColor: alpha(expColor, 0.2),
                                     }}
                                 />
-                                <Chip
-                                    label={student.faculty}
-                                    size="small"
-                                    variant="outlined"
-                                />
+                                <Chip label={student.faculty} size="small" variant="outlined" sx={{ borderColor: 'divider', fontWeight: 500 }} />
+                                <Stack direction="row" alignItems="center" spacing={0.3}>
+                                    <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+                                    <Typography variant="body2" fontWeight={700}>{(student.kuppiRating ?? 0).toFixed(1)}</Typography>
+                                </Stack>
                             </Stack>
                         </Box>
                     </Stack>
 
-                    <Divider sx={{ my: 3 }} />
+                    {/* ── Quick Stats ── */}
+                    <Grid container spacing={2} sx={{ mt: 3 }}>
+                        {[
+                            { label: 'Rating', value: (student.kuppiRating ?? 0).toFixed(1), icon: StarIcon, color: '#F59E0B' },
+                            { label: 'Completed', value: student.completedSessions ?? 0, icon: CheckCircleIcon, color: '#10B981' },
+                            { label: 'Total Sessions', value: student.totalSessionsHosted ?? 0, icon: SchoolIcon, color: '#3B82F6' },
+                            { label: 'Total Views', value: student.totalViews ?? 0, icon: VisibilityIcon, color: '#8B5CF6' },
+                        ].map((stat, idx) => {
+                            const Icon = stat.icon;
+                            return (
+                                <Grid size={{ xs: 6, sm: 3 }} key={idx}>
+                                    <Paper
+                                        elevation={0}
+                                        sx={{
+                                            p: 2,
+                                            borderRadius: 1,
+                                            border: '1px solid',
+                                            borderColor: 'divider',
+                                            textAlign: 'center',
+                                            transition: 'all 0.2s',
+                                            '&:hover': { borderColor: stat.color, boxShadow: `0 4px 14px ${alpha(stat.color, 0.12)}` },
+                                        }}
+                                    >
+                                        <Icon sx={{ fontSize: 20, color: stat.color, mb: 0.5 }} />
+                                        <Typography variant="h5" fontWeight={700}>{stat.value}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
+                                    </Paper>
+                                </Grid>
+                            );
+                        })}
+                    </Grid>
+                </CardContent>
+            </MotionCard>
 
-                    {/* Stats Grid */}
-                    <Grid container spacing={3}>
-                        <Grid size={{ xs: 6, sm: 3 }}>
-                            <Box sx={{ textAlign: 'center' }}>
-                                <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-                                    <StarIcon sx={{ color: 'warning.main' }} />
-                                    <Typography variant="h5" fontWeight={700}>{(student.kuppiRating ?? 0).toFixed(1)}</Typography>
-                                </Stack>
-                                <Typography variant="body2" color="text.secondary">Rating</Typography>
-                            </Box>
-                        </Grid>
-                        <Grid size={{ xs: 6, sm: 3 }}>
-                            <Box sx={{ textAlign: 'center' }}>
-                                <Typography variant="h5" fontWeight={700}>{student.completedSessions ?? 0}</Typography>
-                                <Typography variant="body2" color="text.secondary">Completed</Typography>
-                            </Box>
-                        </Grid>
-                        <Grid size={{ xs: 6, sm: 3 }}>
-                            <Box sx={{ textAlign: 'center' }}>
-                                <Typography variant="h5" fontWeight={700}>{student.totalSessionsHosted ?? 0}</Typography>
-                                <Typography variant="body2" color="text.secondary">Total Sessions</Typography>
-                            </Box>
-                        </Grid>
-                        <Grid size={{ xs: 6, sm: 3 }}>
-                            <Box sx={{ textAlign: 'center' }}>
-                                <Typography variant="h5" fontWeight={700}>{student.totalViews ?? 0}</Typography>
-                                <Typography variant="body2" color="text.secondary">Total Views</Typography>
-                            </Box>
-                        </Grid>
+            {/* ══════════════  DETAILS CARD ══════════════ */}
+            <MotionCard
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 }}
+                elevation={0}
+                sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 3 }}
+            >
+                <CardContent sx={{ p: 3 }}>
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2.5 }}>Tutor Information</Typography>
+                    <Grid container spacing={2}>
+                        {[
+                            { icon: BadgeIcon, label: 'Student ID', value: student.studentId },
+                            { icon: EmailIcon, label: 'Email', value: student.email },
+                            { icon: SchoolIcon, label: 'Batch', value: student.batch },
+                            { icon: AccessTimeIcon, label: 'Availability', value: student.kuppiAvailability || 'Not specified' },
+                            { icon: CalendarTodayIcon, label: 'Kuppi Host Since', value: formatDate(student.kuppiApprovedAt) },
+                            { icon: DescriptionIcon, label: 'Notes Uploaded', value: student.totalNotesUploaded ?? 0 },
+                        ].map(({ icon: Icon, label, value }, idx) => (
+                            <Grid size={{ xs: 12, sm: 6 }} key={idx}>
+                                <Paper elevation={0} sx={{ p: 2, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                                        <Box sx={{ width: 36, height: 36, borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(theme.palette.primary.main, 0.08) }}>
+                                            <Icon sx={{ fontSize: 18, color: 'primary.main' }} />
+                                        </Box>
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>{label}</Typography>
+                                            <Typography variant="body2" fontWeight={600}>{String(value)}</Typography>
+                                        </Box>
+                                    </Stack>
+                                </Paper>
+                            </Grid>
+                        ))}
                     </Grid>
 
-                    <Divider sx={{ my: 3 }} />
-
-                    {/* Details */}
-                    <Grid container spacing={3}>
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <Stack spacing={2}>
-                                <Box>
-                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                        <BadgeIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                        Student ID
-                                    </Typography>
-                                    <Typography variant="body1">{student.studentId}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                        <EmailIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                        Email
-                                    </Typography>
-                                    <Typography variant="body1">{student.email}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                        <SchoolIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                        Batch
-                                    </Typography>
-                                    <Typography variant="body1">{student.batch}</Typography>
-                                </Box>
-                            </Stack>
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <Stack spacing={2}>
-                                <Box>
-                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                        <AccessTimeIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                        Availability
-                                    </Typography>
-                                    <Typography variant="body1">{student.kuppiAvailability || 'Not specified'}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                        <CalendarTodayIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                        Kuppi Host Since
-                                    </Typography>
-                                    <Typography variant="body1">{formatDate(student.kuppiApprovedAt)}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                        <DescriptionIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                        Notes Uploaded
-                                    </Typography>
-                                    <Typography variant="body1">{student.totalNotesUploaded ?? 0}</Typography>
-                                </Box>
-                            </Stack>
-                        </Grid>
-                    </Grid>
-
-                    <Divider sx={{ my: 3 }} />
-
-                    {/* Subjects */}
-                    <Box>
-                        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
-                            <EmojiEventsIcon sx={{ fontSize: 20, mr: 0.5, verticalAlign: 'text-bottom' }} />
+                    {/* Expertise */}
+                    <Box sx={{ mt: 3 }}>
+                        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
+                            <EmojiEventsIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'text-bottom', color: 'warning.main' }} />
                             Expertise
                         </Typography>
-                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                             {(student.kuppiSubjects ?? []).map((subject, idx) => (
                                 <Chip
                                     key={idx}
+                                    icon={<CheckCircleIcon sx={{ fontSize: 14, color: `primary.main !important` }} />}
                                     label={subject}
-                                    sx={{
-                                        bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                        color: 'primary.main',
-                                        fontWeight: 500,
-                                    }}
+                                    size="small"
+                                    sx={{ bgcolor: alpha(theme.palette.primary.main, 0.08), color: 'primary.main', fontWeight: 600, '& .MuiChip-icon': { color: 'primary.main' } }}
                                 />
                             ))}
                         </Stack>
@@ -368,207 +308,184 @@ export default function TutorDetailPage() {
                 </CardContent>
             </MotionCard>
 
-            {/* Sessions Stats Card */}
+            {/* ══════════════  SESSION STATISTICS  ══════════════ */}
             <MotionCard
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
+                transition={{ delay: 0.12 }}
                 elevation={0}
-                sx={{ borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, mb: 3 }}
+                sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 3 }}
             >
                 <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>Session Statistics</Typography>
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                        <TrendingUpIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'text-bottom' }} />
+                        Session Breakdown
+                    </Typography>
                     <Grid container spacing={2}>
-                        <Grid size={{ xs: 6, sm: 3 }}>
-                            <Paper elevation={0} sx={{ p: 2, borderRadius: 2, bgcolor: alpha(STATUS_COLORS.COMPLETED, 0.1), textAlign: 'center' }}>
-                                <Typography variant="h5" fontWeight={700} color={STATUS_COLORS.COMPLETED}>{student.completedSessions ?? 0}</Typography>
-                                <Typography variant="caption" color="text.secondary">Completed</Typography>
-                            </Paper>
-                        </Grid>
-                        <Grid size={{ xs: 6, sm: 3 }}>
-                            <Paper elevation={0} sx={{ p: 2, borderRadius: 2, bgcolor: alpha(STATUS_COLORS.SCHEDULED, 0.1), textAlign: 'center' }}>
-                                <Typography variant="h5" fontWeight={700} color={STATUS_COLORS.SCHEDULED}>{student.scheduledSessions ?? 0}</Typography>
-                                <Typography variant="caption" color="text.secondary">Scheduled</Typography>
-                            </Paper>
-                        </Grid>
-                        <Grid size={{ xs: 6, sm: 3 }}>
-                            <Paper elevation={0} sx={{ p: 2, borderRadius: 2, bgcolor: alpha(STATUS_COLORS.IN_PROGRESS, 0.1), textAlign: 'center' }}>
-                                <Typography variant="h5" fontWeight={700} color={STATUS_COLORS.IN_PROGRESS}>{student.liveSessions ?? 0}</Typography>
-                                <Typography variant="caption" color="text.secondary">Live</Typography>
-                            </Paper>
-                        </Grid>
-                        <Grid size={{ xs: 6, sm: 3 }}>
-                            <Paper elevation={0} sx={{ p: 2, borderRadius: 2, bgcolor: alpha(STATUS_COLORS.CANCELLED, 0.1), textAlign: 'center' }}>
-                                <Typography variant="h5" fontWeight={700} color={STATUS_COLORS.CANCELLED}>{student.cancelledSessions ?? 0}</Typography>
-                                <Typography variant="caption" color="text.secondary">Cancelled</Typography>
-                            </Paper>
-                        </Grid>
+                        {[
+                            { label: 'Completed', value: student.completedSessions ?? 0, color: '#6B7280' },
+                            { label: 'Scheduled', value: student.scheduledSessions ?? 0, color: '#3B82F6' },
+                            { label: 'Live', value: student.liveSessions ?? 0, color: '#10B981' },
+                            { label: 'Cancelled', value: student.cancelledSessions ?? 0, color: '#EF4444' },
+                        ].map((s, idx) => (
+                            <Grid size={{ xs: 6, sm: 3 }} key={idx}>
+                                <Paper
+                                    elevation={0}
+                                    sx={{
+                                        p: 2, borderRadius: 1, textAlign: 'center',
+                                        border: '1px solid', borderColor: 'divider',
+                                        transition: 'all 0.2s',
+                                        '&:hover': { borderColor: s.color, boxShadow: `0 4px 14px ${alpha(s.color, 0.12)}` },
+                                    }}
+                                >
+                                    <Typography variant="h4" fontWeight={700} sx={{ color: s.color, lineHeight: 1.1 }}>{s.value}</Typography>
+                                    <Typography variant="caption" color="text.secondary">{s.label}</Typography>
+                                </Paper>
+                            </Grid>
+                        ))}
                     </Grid>
                 </CardContent>
             </MotionCard>
 
-            {/* Upcoming Sessions */}
+            {/* ══════════════  UPCOMING SESSIONS  ══════════════ */}
             {student.upcomingSessions && student.upcomingSessions.length > 0 && (
                 <MotionCard
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
+                    transition={{ delay: 0.18 }}
                     elevation={0}
-                    sx={{ borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, mb: 3 }}
+                    sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 3 }}
                 >
                     <CardContent sx={{ p: 3 }}>
-                        <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-                            <EventIcon sx={{ fontSize: 20, mr: 0.5, verticalAlign: 'text-bottom' }} />
+                        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                            <EventIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'text-bottom', color: '#3B82F6' }} />
                             Upcoming Sessions
                         </Typography>
                         <Grid container spacing={2}>
-                            {student.upcomingSessions.map((session) => (
-                                <Grid size={{ xs: 12, sm: 6 }} key={session.id}>
-                                    <Paper
-                                        elevation={0}
-                                        sx={{
-                                            p: 2,
-                                            borderRadius: 2,
-                                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s',
-                                            '&:hover': {
-                                                borderColor: theme.palette.primary.main,
-                                            }
-                                        }}
-                                        onClick={() => router.push(`/student/kuppi/${session.id}`)}
-                                    >
-                                        <Stack direction="row" spacing={1} sx={{ mb: 1 }} alignItems="center">
-                                            <Chip
-                                                icon={getStatusIcon(session.status)}
-                                                label={session.status.replace('_', ' ')}
-                                                size="small"
-                                                sx={{
-                                                    bgcolor: alpha(STATUS_COLORS[session.status] || '#6B7280', 0.1),
-                                                    color: STATUS_COLORS[session.status] || '#6B7280',
-                                                    '& .MuiChip-icon': { color: 'inherit' },
-                                                    fontSize: '0.7rem',
-                                                }}
-                                            />
-                                            <Chip label={session.subject} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
-                                        </Stack>
-                                        <Typography variant="subtitle2" fontWeight={600} noWrap>{session.title}</Typography>
-                                        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-                                            <Typography variant="caption" color="text.secondary">
-                                                <CalendarTodayIcon sx={{ fontSize: 12, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                                {formatDate(session.scheduledStartTime)}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                <AccessTimeIcon sx={{ fontSize: 12, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                                {formatTime(session.scheduledStartTime)}
-                                            </Typography>
-                                        </Stack>
-                                    </Paper>
-                                </Grid>
-                            ))}
+                            {student.upcomingSessions.map((session) => {
+                                const sc = STATUS_CONFIG[session.status] || STATUS_CONFIG.SCHEDULED;
+                                return (
+                                    <Grid size={{ xs: 12, sm: 6 }} key={session.id}>
+                                        <Paper
+                                            elevation={0}
+                                            onClick={() => router.push(`/student/kuppi/${session.id}`)}
+                                            sx={{
+                                                borderRadius: 1, overflow: 'hidden', cursor: 'pointer',
+                                                border: '1px solid', borderColor: 'divider',
+                                                transition: 'all 0.25s',
+                                                '&:hover': { borderColor: 'primary.main', transform: 'translateY(-2px)', boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.12)}` },
+                                            }}
+                                        >
+                                            <Box sx={{ height: 3, background: `linear-gradient(90deg, ${sc.color}, ${alpha(sc.color, 0.3)})` }} />
+                                            <Box sx={{ p: 2 }}>
+                                                <Stack direction="row" spacing={0.75} sx={{ mb: 1 }} alignItems="center">
+                                                    <Chip
+                                                        icon={sc.pulse
+                                                            ? <FiberManualRecordIcon sx={{ fontSize: 8, color: `${sc.color} !important`, animation: 'pulse 1.5s infinite', '@keyframes pulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.3 } } }} />
+                                                            : sc.icon}
+                                                        label={session.status.replace('_', ' ')}
+                                                        size="small"
+                                                        sx={{ bgcolor: alpha(sc.color, 0.1), color: sc.color, fontWeight: 600, fontSize: '0.65rem', '& .MuiChip-icon': { color: 'inherit' } }}
+                                                    />
+                                                    <Chip label={session.subject} size="small" variant="outlined" sx={{ fontSize: '0.65rem', borderColor: 'divider' }} />
+                                                </Stack>
+                                                <Typography variant="subtitle2" fontWeight={700} noWrap>{session.title}</Typography>
+                                                <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <CalendarTodayIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+                                                        <Typography variant="caption" color="text.secondary">{formatDate(session.scheduledStartTime)}</Typography>
+                                                    </Stack>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <AccessTimeIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+                                                        <Typography variant="caption" color="text.secondary">{formatTime(session.scheduledStartTime)}</Typography>
+                                                    </Stack>
+                                                </Stack>
+                                            </Box>
+                                        </Paper>
+                                    </Grid>
+                                );
+                            })}
                         </Grid>
                     </CardContent>
                 </MotionCard>
             )}
 
-            {/* Recent Sessions */}
+            {/* ══════════════  RECENT SESSIONS  ══════════════ */}
             {student.recentSessions && student.recentSessions.length > 0 && (
                 <MotionCard
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
+                    transition={{ delay: 0.24 }}
                     elevation={0}
-                    sx={{ borderRadius: 3, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}
+                    sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 3 }}
                 >
                     <CardContent sx={{ p: 3 }}>
-                        <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-                            <AutoStoriesIcon sx={{ fontSize: 20, mr: 0.5, verticalAlign: 'text-bottom' }} />
+                        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                            <AutoStoriesIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'text-bottom', color: '#8B5CF6' }} />
                             Recent Sessions
                         </Typography>
                         <Grid container spacing={2}>
-                            {student.recentSessions.map((session) => (
-                                <Grid size={{ xs: 12, sm: 6 }} key={session.id}>
-                                    <Paper
-                                        elevation={0}
-                                        sx={{
-                                            p: 2,
-                                            borderRadius: 2,
-                                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s',
-                                            '&:hover': {
-                                                borderColor: theme.palette.primary.main,
-                                            }
-                                        }}
-                                        onClick={() => router.push(`/student/kuppi/${session.id}`)}
-                                    >
-                                        <Stack direction="row" spacing={1} sx={{ mb: 1 }} alignItems="center">
-                                            <Chip
-                                                icon={getStatusIcon(session.status)}
-                                                label={session.status.replace('_', ' ')}
-                                                size="small"
-                                                sx={{
-                                                    bgcolor: alpha(STATUS_COLORS[session.status] || '#6B7280', 0.1),
-                                                    color: STATUS_COLORS[session.status] || '#6B7280',
-                                                    '& .MuiChip-icon': { color: 'inherit' },
-                                                    fontSize: '0.7rem',
-                                                }}
-                                            />
-                                            <Chip label={session.subject} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
-                                        </Stack>
-                                        <Typography variant="subtitle2" fontWeight={600} noWrap>{session.title}</Typography>
-                                        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-                                            <Typography variant="caption" color="text.secondary">
-                                                <VisibilityIcon sx={{ fontSize: 12, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                                {session.viewCount} views
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                <CalendarTodayIcon sx={{ fontSize: 12, mr: 0.5, verticalAlign: 'text-bottom' }} />
-                                                {formatDate(session.scheduledStartTime)}
-                                            </Typography>
-                                        </Stack>
-                                    </Paper>
-                                </Grid>
-                            ))}
+                            {student.recentSessions.map((session) => {
+                                const sc = STATUS_CONFIG[session.status] || STATUS_CONFIG.SCHEDULED;
+                                return (
+                                    <Grid size={{ xs: 12, sm: 6 }} key={session.id}>
+                                        <Paper
+                                            elevation={0}
+                                            onClick={() => router.push(`/student/kuppi/${session.id}`)}
+                                            sx={{
+                                                borderRadius: 1, overflow: 'hidden', cursor: 'pointer',
+                                                border: '1px solid', borderColor: 'divider',
+                                                transition: 'all 0.25s',
+                                                '&:hover': { borderColor: 'primary.main', transform: 'translateY(-2px)', boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.12)}` },
+                                            }}
+                                        >
+                                            <Box sx={{ height: 3, background: `linear-gradient(90deg, ${sc.color}, ${alpha(sc.color, 0.3)})` }} />
+                                            <Box sx={{ p: 2 }}>
+                                                <Stack direction="row" spacing={0.75} sx={{ mb: 1 }} alignItems="center">
+                                                    <Chip
+                                                        icon={sc.icon}
+                                                        label={session.status.replace('_', ' ')}
+                                                        size="small"
+                                                        sx={{ bgcolor: alpha(sc.color, 0.1), color: sc.color, fontWeight: 600, fontSize: '0.65rem', '& .MuiChip-icon': { color: 'inherit' } }}
+                                                    />
+                                                    <Chip label={session.subject} size="small" variant="outlined" sx={{ fontSize: '0.65rem', borderColor: 'divider' }} />
+                                                </Stack>
+                                                <Typography variant="subtitle2" fontWeight={700} noWrap>{session.title}</Typography>
+                                                <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <VisibilityIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+                                                        <Typography variant="caption" color="text.secondary">{session.viewCount} views</Typography>
+                                                    </Stack>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <CalendarTodayIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+                                                        <Typography variant="caption" color="text.secondary">{formatDate(session.scheduledStartTime)}</Typography>
+                                                    </Stack>
+                                                </Stack>
+                                            </Box>
+                                        </Paper>
+                                    </Grid>
+                                );
+                            })}
                         </Grid>
                     </CardContent>
                 </MotionCard>
             )}
 
-            {/* No Sessions Message */}
+            {/* ── No Sessions ── */}
             {(!student.recentSessions || student.recentSessions.length === 0) &&
-             (!student.upcomingSessions || (Array.isArray(student.upcomingSessions) && student.upcomingSessions.length === 0)) && (
-                <Paper
-                    elevation={0}
-                    sx={{
-                        p: 4,
-                        borderRadius: 3,
-                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                        textAlign: 'center',
-                    }}
-                >
-                    <AutoStoriesIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                    <Typography variant="body1" color="text.secondary">No sessions available</Typography>
-                </Paper>
-            )}
+                (!student.upcomingSessions || (Array.isArray(student.upcomingSessions) && student.upcomingSessions.length === 0)) && (
+                    <Paper elevation={0} sx={{ p: 6, borderRadius: 1, border: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                        <Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: alpha(theme.palette.primary.main, 0.08), display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
+                            <AutoStoriesIcon sx={{ fontSize: 30, color: alpha(theme.palette.primary.main, 0.4) }} />
+                        </Box>
+                        <Typography variant="body1" fontWeight={600} gutterBottom>No Sessions Yet</Typography>
+                        <Typography variant="body2" color="text.secondary">This tutor hasn't hosted any sessions yet.</Typography>
+                    </Paper>
+                )}
 
-            {/* Snackbar */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={4000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-                <Alert
-                    severity={snackbar.severity}
-                    onClose={() => setSnackbar({ ...snackbar, open: false })}
-                    variant="filled"
-                    sx={{ borderRadius: 2 }}
-                >
-                    {snackbar.message}
-                </Alert>
+            <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+                <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} variant="filled" sx={{ borderRadius: 1 }}>{snackbar.message}</Alert>
             </Snackbar>
         </MotionBox>
     );
 }
-

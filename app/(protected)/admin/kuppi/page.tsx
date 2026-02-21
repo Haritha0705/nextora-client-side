@@ -96,12 +96,14 @@ import {
     selectKuppiSuccessMessage,
     selectKuppiIsCreating,
     selectKuppiIsUpdating,
+    selectKuppiIsDeleting,
+    deleteSessionAsync,
+    deleteNoteAsync,
     KuppiApplicationResponse,
     KuppiSessionResponse,
     KuppiNoteResponse,
     ApplicationStatus,
     SessionStatus,
-    ReviewKuppiApplicationRequest,
 } from '@/features/kuppi';
 import * as kuppiServices from '@/features/kuppi/services';
 
@@ -178,6 +180,7 @@ export default function AdminKuppiDashboard() {
     const isApplicationLoading = useAppSelector(selectKuppiIsApplicationLoading);
     const isApproving = useAppSelector(selectKuppiIsCreating);
     const isRejecting = useAppSelector(selectKuppiIsUpdating);
+    const isDeleting = useAppSelector(selectKuppiIsDeleting);
     const error = useAppSelector(selectKuppiError);
     const successMessage = useAppSelector(selectKuppiSuccessMessage);
 
@@ -279,12 +282,14 @@ export default function AdminKuppiDashboard() {
         if (selectedSession) {
             setActionLoading(true);
             try {
-                await kuppiServices.adminDeleteSession(selectedSession.id);
+                // dispatch slice thunk and wait for result
+                await dispatch(deleteSessionAsync(selectedSession.id)).unwrap();
                 setDeleteDialogOpen(false);
                 handleRefresh();
                 setSnackbar({ open: true, message: 'Session deleted', severity: 'success' });
-            } catch (err) {
-                setSnackbar({ open: true, message: 'Failed to delete session', severity: 'error' });
+            } catch (err: unknown) {
+                const message = (err as any)?.message || String(err) || 'Failed to delete session';
+                setSnackbar({ open: true, message, severity: 'error' });
             } finally {
                 setActionLoading(false);
             }
@@ -296,12 +301,13 @@ export default function AdminKuppiDashboard() {
         if (selectedNote) {
             setActionLoading(true);
             try {
-                await kuppiServices.adminDeleteNote(selectedNote.id);
+                await dispatch(deleteNoteAsync(selectedNote.id)).unwrap();
                 setDeleteDialogOpen(false);
                 handleRefresh();
                 setSnackbar({ open: true, message: 'Note deleted', severity: 'success' });
-            } catch (err) {
-                setSnackbar({ open: true, message: 'Failed to delete note', severity: 'error' });
+            } catch (err: unknown) {
+                const message = (err as any)?.message || String(err) || 'Failed to delete note';
+                setSnackbar({ open: true, message, severity: 'error' });
             } finally {
                 setActionLoading(false);
             }
@@ -721,9 +727,7 @@ export default function AdminKuppiDashboard() {
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
                     <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-                    <Button variant="contained" color="error" onClick={selectedSession ? handleDeleteSession : handleDeleteNote} disabled={actionLoading}>
-                        {actionLoading ? <CircularProgress size={20} /> : 'Delete'}
-                    </Button>
+                    <Button variant="contained" color="error" onClick={selectedSession ? handleDeleteSession : handleDeleteNote} disabled={actionLoading || isDeleting}>{actionLoading || isDeleting ? <CircularProgress size={20} /> : 'Delete'}</Button>
                 </DialogActions>
             </Dialog>
 

@@ -207,7 +207,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
 
                 {/* Topics */}
                 <Stack direction="row" spacing={0.5} sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
-                    {session.topics.slice(0, 3).map((topic) => (
+                    {session.topics.slice(0, 3).map((topic: string) => (
                         <Chip
                             key={topic}
                             label={topic}
@@ -274,4 +274,3 @@ export const SessionCard: React.FC<SessionCardProps> = ({
         </MotionCard>
     );
 };
-
