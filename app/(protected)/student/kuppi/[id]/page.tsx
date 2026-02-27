@@ -14,7 +14,6 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-// ...existing icon imports...
 import SchoolIcon from '@mui/icons-material/School';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EventIcon from '@mui/icons-material/Event';
@@ -30,6 +29,7 @@ import TimerIcon from '@mui/icons-material/Timer';
 import EmailIcon from '@mui/icons-material/Email';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 import { SAMPLE_SESSIONS } from '@/lib/constants/kuppi.constants';
 import {
@@ -67,6 +67,13 @@ const SUBJECT_SUGGESTIONS = [
 ];
 
 const MEETING_PLATFORMS = ['Google Meet', 'Zoom', 'Microsoft Teams', 'Discord', 'Other'];
+// Allowed file MIME types for client-side validation (edit dialog)
+const ALLOWED_FILE_TYPES_EDIT = [
+    'application/pdf',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+];
+const FILE_ACCEPT_EDIT = '.pdf,.ppt,.pptx,image/*,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
 const editFieldSx = {
     '& .MuiOutlinedInput-root': {
@@ -140,6 +147,8 @@ export default function KuppiSessionDetailPage() {
         liveLink: '', meetingPlatform: '',
     });
     const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+    const [selectedEditFiles, setSelectedEditFiles] = useState<File[]>([]);
+    const [editFileError, setEditFileError] = useState<string | null>(null);
 
     // Cancel / Delete state
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -301,6 +310,7 @@ export default function KuppiSessionDetailPage() {
             meetingPlatform: session.meetingPlatform || '',
         });
         setEditErrors({});
+        setSelectedEditFiles([]);
         setIsEditOpen(true);
     }, [session]);
 
@@ -337,7 +347,14 @@ export default function KuppiSessionDetailPage() {
             liveLink: editForm.liveLink,
             meetingPlatform: editForm.meetingPlatform || undefined,
         };
-        const result = await dispatch(updateSessionAsync({ id: Number(session.id), data }));
+        // validate files
+        if (editFileError) {
+            setSnackbarMessage(editFileError);
+            setSnackbarSeverity('error');
+            setSnackbarOpen(true);
+            return;
+        }
+        const result = await dispatch(updateSessionAsync({ id: Number(session.id), data, files: selectedEditFiles }));
         if (updateSessionAsync.fulfilled.match(result)) {
             setSnackbarMessage('Session updated successfully!');
             setSnackbarSeverity('success');
@@ -413,6 +430,24 @@ export default function KuppiSessionDetailPage() {
             setActionLoading(false);
         }
     };
+
+    // Handlers for edit dialog file selection
+    const handleEditFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setEditFileError(null);
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        const arr = Array.from(files);
+        for (const f of arr) {
+            if (!(f.type.startsWith('image/') || ALLOWED_FILE_TYPES_EDIT.includes(f.type))) {
+                setEditFileError(`Unsupported file type: ${f.name}`);
+                return;
+            }
+        }
+        setSelectedEditFiles(prev => [...prev, ...arr]);
+        e.currentTarget.value = '';
+    };
+
+    const removeEditFile = (index: number) => setSelectedEditFiles(prev => prev.filter((_, i) => i !== index));
 
     // Clear redux messages
     useEffect(() => {
@@ -955,6 +990,27 @@ export default function KuppiSessionDetailPage() {
                                         slotProps={{ input: { startAdornment: <LinkIcon sx={{ mr: 1, color: 'text.disabled', fontSize: 20 }} /> } }} />
                                 </Grid>
                             </Grid>
+                        </Paper>
+                        {/* Edit dialog file attachments */}
+                        <Paper elevation={0} sx={{ p: 2, borderRadius: 1, border: '1px dashed', borderColor: 'divider', bgcolor: alpha(theme.palette.background.paper, 0.02), mt: 2 }}>
+                            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                                <DescriptionIcon sx={{ color: 'text.secondary' }} />
+                                <Typography variant="subtitle2" fontWeight={700}>Attach Notes / Slides (optional)</Typography>
+                            </Stack>
+                            <input id="kuppi-edit-files-input" type="file" accept={FILE_ACCEPT_EDIT} multiple style={{ display: 'none' }} onChange={handleEditFileInput} />
+                            <label htmlFor="kuppi-edit-files-input">
+                                <Button component="span" startIcon={<DescriptionIcon />} sx={{ textTransform: 'none' }}>
+                                    Add Files
+                                </Button>
+                            </label>
+                            {editFileError && <Typography color="error" variant="caption" sx={{ display: 'block', mt: 1 }}>{editFileError}</Typography>}
+                            {selectedEditFiles.length > 0 && (
+                                <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
+                                    {selectedEditFiles.map((f, idx) => (
+                                        <Chip key={`${f.name}-${idx}`} label={`${f.name} (${Math.round(f.size / 1024)} KB)`} onDelete={() => removeEditFile(idx)} />
+                                    ))}
+                                </Stack>
+                            )}
                         </Paper>
                     </Stack>
                 </DialogContent>

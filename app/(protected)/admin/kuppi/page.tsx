@@ -54,10 +54,7 @@ import StarIcon from '@mui/icons-material/Star';
 import EventIcon from '@mui/icons-material/Event';
 import DescriptionIcon from '@mui/icons-material/Description';
 import VideoCallIcon from '@mui/icons-material/VideoCall';
-import DownloadIcon from '@mui/icons-material/Download';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
 
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
@@ -68,6 +65,8 @@ import {
     adminRejectApplicationAsync,
     adminFetchPlatformStats,
     fetchSessions,
+    fetchSessionById,
+    fetchNoteById,
     fetchNotes,
     setKuppiCurrentPage,
     setKuppiPageSize,
@@ -85,15 +84,14 @@ import {
     selectKuppiCurrentPage,
     selectKuppiPageSize,
     selectKuppiIsApplicationLoading,
+    selectKuppiIsSessionLoading,
+    selectKuppiIsNoteLoading,
     selectKuppiIsLoading,
     selectKuppiError,
     selectKuppiSuccessMessage,
     selectKuppiIsCreating,
     selectKuppiIsUpdating,
-    selectKuppiIsDeleting,
     adminSoftDeleteSessionAsync,
-    adminUpdateSessionAsync,
-    UpdateKuppiSessionRequest,
     deleteNoteAsync,
     KuppiApplicationResponse,
     KuppiSessionResponse,
@@ -104,9 +102,8 @@ import {
 import * as kuppiServices from '@/features/kuppi/services';
 
 // New component imports
-import RescheduleSessionModal from '@/components/kuppi/RescheduleSessionModal';
 import SessionSearchPanel from '@/components/kuppi/SessionSearchPanel';
-import SessionNotesList from '@/components/kuppi/SessionNotesList';
+import DownloadIcon from "@mui/icons-material/Download";
 
 const MotionBox = motion.create(Box);
 const MotionCard = motion.create(Card);
@@ -180,7 +177,6 @@ export default function AdminKuppiDashboard() {
     const isApplicationLoading = useAppSelector(selectKuppiIsApplicationLoading);
     const isApproving = useAppSelector(selectKuppiIsCreating);
     const isRejecting = useAppSelector(selectKuppiIsUpdating);
-    const isDeleting = useAppSelector(selectKuppiIsDeleting);
     const error = useAppSelector(selectKuppiError);
     const successMessage = useAppSelector(selectKuppiSuccessMessage);
 
@@ -192,6 +188,8 @@ export default function AdminKuppiDashboard() {
     const [selectedApp, setSelectedApp] = useState<KuppiApplicationResponse | null>(null);
     const [selectedSession, setSelectedSession] = useState<KuppiSessionResponse | null>(null);
     const [selectedNote, setSelectedNote] = useState<KuppiNoteResponse | null>(null);
+    // viewMode determines which panel to show in the View dialog. Use explicit mode to avoid racey flashes when async fetches resolve.
+    const [viewMode, setViewMode] = useState<'application' | 'session' | 'note' | null>(null);
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [approveDialogOpen, setApproveDialogOpen] = useState(false);
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -201,13 +199,14 @@ export default function AdminKuppiDashboard() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
     const [actionLoading, setActionLoading] = useState(false);
 
+    // New anchors for session & note action menus (3-dots)
+    const [sessionAnchorEl, setSessionAnchorEl] = useState<null | HTMLElement>(null);
+    const [sessionActionTarget, setSessionActionTarget] = useState<KuppiSessionResponse | null>(null);
+    const [noteAnchorEl, setNoteAnchorEl] = useState<null | HTMLElement>(null);
+    const [noteActionTarget, setNoteActionTarget] = useState<KuppiNoteResponse | null>(null);
+
     // New local state for session search/filter and modals
     const [filteredSessions, setFilteredSessions] = useState<KuppiSessionResponse[] | null>(null);
-    const [rescheduleOpen, setRescheduleOpen] = useState(false);
-    const [notesDialogOpen, setNotesDialogOpen] = useState(false);
-    const [editDialogOpen, setEditDialogOpen] = useState(false);
-    const [editForm, setEditForm] = useState<Partial<UpdateKuppiSessionRequest>>({});
-    const isSessionUpdating = useAppSelector(selectKuppiIsUpdating);
 
     // Fetch data on mount
     useEffect(() => {
@@ -262,6 +261,11 @@ export default function AdminKuppiDashboard() {
     const handleViewApplication = () => {
         handleMenuClose();
         if (selectedApp) {
+            // clear other selections to avoid stale UI flashing
+            setSelectedSession(null);
+            setSelectedNote(null);
+            // fetch application details and open dialog
+            setViewMode('application');
             dispatch(adminFetchApplicationById(selectedApp.id));
             setViewDialogOpen(true);
         }
@@ -316,42 +320,89 @@ export default function AdminKuppiDashboard() {
         }
     };
 
-    // Open edit dialog and populate form
-    const handleOpenEdit = (session: KuppiSessionResponse) => {
-        setSelectedSession(session);
-        setEditForm({
-            title: session.title,
-            description: session.description ?? undefined,
-            subject: session.subject,
-            scheduledStartTime: session.scheduledStartTime,
-            scheduledEndTime: session.scheduledEndTime,
-            liveLink: session.liveLink,
-            meetingPlatform: session.meetingPlatform ?? undefined,
-        });
-        setEditDialogOpen(true);
+    // Session action menu (3-dot) handlers
+    const handleSessionMenuOpen = (event: React.MouseEvent<HTMLElement>, session: KuppiSessionResponse) => {
+        setSessionAnchorEl(event.currentTarget);
+        setSessionActionTarget(session);
+    };
+    const handleSessionMenuClose = () => {
+        setSessionAnchorEl(null);
+        setSessionActionTarget(null);
     };
 
-    const handleEditChange = (key: keyof UpdateKuppiSessionRequest, value: any) => {
-        setEditForm(prev => ({ ...prev, [key]: value }));
-    };
-
-    const handleSaveEdit = async () => {
-        if (!selectedSession) return;
-        setActionLoading(true);
-        try {
-            await dispatch(adminUpdateSessionAsync({ id: selectedSession.id, data: editForm })).unwrap();
-            setEditDialogOpen(false);
-            handleRefresh();
-            setSnackbar({ open: true, message: 'Session updated', severity: 'success' });
-        } catch (err: unknown) {
-            const message = (err as any)?.message || String(err) || 'Failed to update session';
-            setSnackbar({ open: true, message, severity: 'error' });
-        } finally {
-            setActionLoading(false);
+    const handleSessionView = async () => {
+        handleSessionMenuClose();
+        if (sessionActionTarget) {
+            // clear other selections to avoid stale UI flashing
+            setSelectedNote(null);
+            setSelectedApp(null);
+            // clear local selectedSession while loading
+            setSelectedSession(null);
+            setViewMode('session');
+            setViewDialogOpen(true);
+            try {
+                const session = await dispatch(fetchSessionById(sessionActionTarget.id)).unwrap();
+                // payload is the session detail
+                setSelectedSession(session as KuppiSessionResponse);
+            } catch (err: unknown) {
+                const message = (err as any)?.message || String(err) || 'Failed to fetch session';
+                setSnackbar({ open: true, message, severity: 'error' });
+                // keep view closed on failure
+                setViewDialogOpen(false);
+                setViewMode(null);
+            }
         }
     };
 
-    // Note handlers
+    const handleSessionDeleteConfirm = () => {
+        handleSessionMenuClose();
+        if (sessionActionTarget) {
+            setSelectedSession(sessionActionTarget);
+            setDeleteDialogOpen(true);
+        }
+    };
+
+    // Note action menu (3-dot) handlers
+    const handleNoteMenuOpen = (event: React.MouseEvent<HTMLElement>, note: KuppiNoteResponse) => {
+        setNoteAnchorEl(event.currentTarget);
+        setNoteActionTarget(note);
+    };
+    const handleNoteMenuClose = () => {
+        setNoteAnchorEl(null);
+        setNoteActionTarget(null);
+    };
+
+    const handleNoteView = async () => {
+        handleNoteMenuClose();
+        if (noteActionTarget) {
+            // clear other selections to avoid stale UI flashing
+            setSelectedSession(null);
+            setSelectedApp(null);
+            // clear local selectedNote while loading
+            setSelectedNote(null);
+            setViewMode('note');
+            setViewDialogOpen(true);
+            try {
+                const note = await dispatch(fetchNoteById(noteActionTarget.id)).unwrap();
+                setSelectedNote(note as KuppiNoteResponse);
+            } catch (err: unknown) {
+                const message = (err as any)?.message || String(err) || 'Failed to fetch note';
+                setSnackbar({ open: true, message, severity: 'error' });
+                setViewDialogOpen(false);
+                setViewMode(null);
+            }
+        }
+    };
+
+    const handleNoteDeleteConfirm = () => {
+        handleNoteMenuClose();
+        if (noteActionTarget) {
+            setSelectedNote(noteActionTarget);
+            setDeleteDialogOpen(true);
+        }
+    };
+
+    // Note delete handler (soft delete / delete note)
     const handleDeleteNote = async () => {
         if (selectedNote) {
             setActionLoading(true);
@@ -369,6 +420,37 @@ export default function AdminKuppiDashboard() {
         }
     };
 
+    // Open a session by id and show the session view in the dialog.
+    const openSessionById = async (sessionId?: number | string | null, prevNoteToRestore?: KuppiNoteResponse | null) => {
+        if (sessionId === null || sessionId === undefined) {
+            setSnackbar({ open: true, message: 'Session not available for this note', severity: 'error' });
+            return;
+        }
+        // preserve prevNote to restore on error (when invoked from note view)
+        const prevNote = prevNoteToRestore ?? null;
+        // clear other selections
+        setSelectedNote(null);
+        setSelectedApp(null);
+        setSelectedSession(null);
+        setViewMode('session');
+        setViewDialogOpen(true);
+        try {
+            const session = await dispatch(fetchSessionById(Number(sessionId))).unwrap();
+            setSelectedSession(session as KuppiSessionResponse);
+        } catch (err: unknown) {
+            const message = (err as any)?.message || String(err) || 'Failed to open session';
+            setSnackbar({ open: true, message, severity: 'error' });
+            setViewDialogOpen(false);
+            setViewMode(null);
+            if (prevNote) {
+                // restore note view if we were inside a note
+                setSelectedNote(prevNote);
+                setViewMode('note');
+                setViewDialogOpen(true);
+            }
+        }
+    };
+
     // Handle messages
     useEffect(() => {
         if (error) {
@@ -381,6 +463,10 @@ export default function AdminKuppiDashboard() {
             handleRefresh();
         }
     }, [error, successMessage, dispatch, handleRefresh]);
+
+    // session & note loading flags from store
+    const isSessionLoading = useAppSelector(selectKuppiIsSessionLoading);
+    const isNoteLoading = useAppSelector(selectKuppiIsNoteLoading);
 
     // Helper to render uploader which might be a string or an object
     const renderUploader = (note: KuppiNoteResponse) => {
@@ -498,42 +584,45 @@ export default function AdminKuppiDashboard() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {applications.map((app) => (
-                                            <TableRow key={app.id} hover>
-                                                <TableCell>
-                                                    <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                        <Avatar sx={{ width: 36, height: 36, bgcolor: theme.palette.primary.main }}>{app.studentName?.[0]}</Avatar>
-                                                        <Box>
-                                                            <Typography variant="body2" fontWeight={600}>{app.studentName}</Typography>
-                                                            <Typography variant="caption" color="text.secondary">{app.studentEmail}</Typography>
-                                                        </Box>
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                        {app.subjectsToTeach.slice(0, 2).map((s, i) => <Chip key={i} label={s} size="small" />)}
-                                                        {app.subjectsToTeach.length > 2 && <Chip label={`+${app.subjectsToTeach.length - 2}`} size="small" />}
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Stack direction="row" alignItems="center" spacing={0.5}>
-                                                        <StarIcon sx={{ fontSize: 16, color: '#F59E0B' }} />
-                                                        <Typography variant="body2" fontWeight={600}>{app.currentGpa.toFixed(2)}</Typography>
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        icon={getApplicationStatusIcon(app.status)}
-                                                        label={app.statusDisplayName}
-                                                        size="small"
-                                                        sx={{ bgcolor: alpha(APPLICATION_STATUS_COLORS[app.status], 0.1), color: APPLICATION_STATUS_COLORS[app.status], '& .MuiChip-icon': { color: 'inherit' } }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <IconButton size="small" onClick={(e) => handleApplicationMenuOpen(e, app)}><MoreVertIcon /></IconButton>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {applications.map((app) => {
+                                            const appColor = APPLICATION_STATUS_COLORS[(app.status as ApplicationStatus)] ?? '#6B7280';
+                                            return (
+                                                <TableRow key={app.id} hover>
+                                                    <TableCell>
+                                                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                                                            <Avatar sx={{ width: 36, height: 36, bgcolor: theme.palette.primary.main }}>{app.studentName?.[0]}</Avatar>
+                                                            <Box>
+                                                                <Typography variant="body2" fontWeight={600}>{app.studentName}</Typography>
+                                                                <Typography variant="caption" color="text.secondary">{app.studentEmail}</Typography>
+                                                            </Box>
+                                                        </Stack>
+                                                    </TableCell>
+                                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                                                        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                            {app.subjectsToTeach.slice(0, 2).map((s, i) => <Chip key={i} label={s} size="small" />)}
+                                                            {app.subjectsToTeach.length > 2 && <Chip label={`+${app.subjectsToTeach.length - 2}`} size="small" />}
+                                                        </Stack>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                                                            <StarIcon sx={{ fontSize: 16, color: '#F59E0B' }} />
+                                                            <Typography variant="body2" fontWeight={600}>{app.currentGpa.toFixed(2)}</Typography>
+                                                        </Stack>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Chip
+                                                            icon={getApplicationStatusIcon(app.status)}
+                                                            label={app.statusDisplayName}
+                                                            size="small"
+                                                            sx={{ bgcolor: alpha(appColor, 0.1), color: appColor, '& .MuiChip-icon': { color: 'inherit' } }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <IconButton size="small" onClick={(e) => handleApplicationMenuOpen(e, app)}><MoreVertIcon /></IconButton>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
@@ -587,55 +676,39 @@ export default function AdminKuppiDashboard() {
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {sessionsToShow.map((session) => (
-                                                    <TableRow key={session.id} hover>
-                                                        <TableCell>
-                                                            <Box>
-                                                                <Typography variant="body2" fontWeight={600}>{session.title}</Typography>
-                                                                <Chip label={session.subject} size="small" sx={{ mt: 0.5 }} />
-                                                            </Box>
-                                                        </TableCell>
-                                                        <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                            <Typography variant="body2">{session.host.fullName}</Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Chip
-                                                                icon={getSessionStatusIcon(session.status)}
-                                                                label={session.status}
-                                                                size="small"
-                                                                sx={{ bgcolor: alpha(SESSION_STATUS_COLORS[session.status], 0.1), color: SESSION_STATUS_COLORS[session.status], '& .MuiChip-icon': { color: 'inherit' } }}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                                                            <Typography variant="caption">{new Date(session.scheduledStartTime).toLocaleDateString()}</Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2">{session.viewCount}</Typography>
-                                                        </TableCell>
-                                                        <TableCell align="right">
-                                                            <Tooltip title="Reschedule">
-                                                                <IconButton size="small" onClick={() => { setSelectedSession(session); setRescheduleOpen(true); }}>
-                                                                    <CalendarTodayIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Edit">
-                                                                <IconButton size="small" onClick={() => handleOpenEdit(session)}>
-                                                                    <EditIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Notes">
-                                                                <IconButton size="small" onClick={() => { setSelectedSession(session); setNotesDialogOpen(true); }}>
-                                                                    <DescriptionIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Delete">
-                                                                <IconButton size="small" color="error" onClick={() => { setSelectedSession(session); setDeleteDialogOpen(true); }}>
-                                                                    <DeleteIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
+                                                {sessionsToShow.map((session) => {
+                                                    const sessionColor = SESSION_STATUS_COLORS[(session.status as SessionStatus)] ?? '#6B7280';
+                                                    return (
+                                                        <TableRow key={session.id} hover>
+                                                            <TableCell>
+                                                                <Box>
+                                                                    <Typography variant="body2" fontWeight={600}>{session.title}</Typography>
+                                                                    <Chip label={session.subject} size="small" sx={{ mt: 0.5 }} />
+                                                                </Box>
+                                                            </TableCell>
+                                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                                                                <Typography variant="body2">{session.host?.fullName ?? ''}</Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Chip
+                                                                    icon={getSessionStatusIcon(session.status)}
+                                                                    label={session.status ?? '—'}
+                                                                    size="small"
+                                                                    sx={{ bgcolor: alpha(sessionColor, 0.1), color: sessionColor, '& .MuiChip-icon': { color: 'inherit' } }}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                                                                <Typography variant="caption">{session.scheduledStartTime ? new Date(session.scheduledStartTime).toLocaleDateString() : ''}</Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2">{session.viewCount}</Typography>
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <IconButton size="small" onClick={(e) => handleSessionMenuOpen(e, session)}><MoreVertIcon fontSize="small" /></IconButton>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
                                             </TableBody>
                                         </Table>
                                     </TableContainer>
@@ -654,6 +727,26 @@ export default function AdminKuppiDashboard() {
                     )}
                 </MotionCard>
             </Box>
+
+            {/* Session Action Menu (3-dot) */}
+            <Menu anchorEl={sessionAnchorEl} open={Boolean(sessionAnchorEl)} onClose={handleSessionMenuClose}>
+                <MenuItem onClick={handleSessionView}><VisibilityIcon sx={{ mr: 1.5, fontSize: 20 }} />View</MenuItem>
+                <MenuItem onClick={handleSessionDeleteConfirm} sx={{ color: 'error.main' }}><DeleteIcon sx={{ mr: 1.5, fontSize: 20 }} />Delete</MenuItem>
+            </Menu>
+
+            {/* Note Action Menu (3-dot) */}
+            <Menu anchorEl={noteAnchorEl} open={Boolean(noteAnchorEl)} onClose={handleNoteMenuClose}>
+                <MenuItem onClick={handleNoteView}><VisibilityIcon sx={{ mr: 1.5, fontSize: 20 }} />View</MenuItem>
+                <MenuItem onClick={handleNoteDeleteConfirm} sx={{ color: 'error.main' }}><DeleteIcon sx={{ mr: 1.5, fontSize: 20 }} />Delete</MenuItem>
+            </Menu>
+
+            {/* Application Action Menu (3-dot) */}
+            <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+                <MenuItem onClick={handleViewApplication}><VisibilityIcon sx={{ mr: 1.5, fontSize: 20 }} />View</MenuItem>
+                {selectedApp?.status === 'PENDING' && <MenuItem onClick={handleMarkUnderReview} sx={{ color: 'info.main' }}><HourglassEmptyIcon sx={{ mr: 1.5, fontSize: 20 }} />Mark Under Review</MenuItem>}
+                {selectedApp?.canBeApproved && <MenuItem onClick={() => { handleMenuClose(); setApproveDialogOpen(true); }} sx={{ color: 'success.main' }}><ThumbUpIcon sx={{ mr: 1.5, fontSize: 20 }} />Approve</MenuItem>}
+                {selectedApp?.canBeRejected && <MenuItem onClick={() => { handleMenuClose(); setRejectDialogOpen(true); }} sx={{ color: 'error.main' }}><ThumbDownIcon sx={{ mr: 1.5, fontSize: 20 }} />Reject</MenuItem>}
+            </Menu>
 
             {/* Notes Tab (mounted always, hidden when inactive) */}
             <Box role="tabpanel" hidden={mainTab !== 2} sx={{ display: mainTab === 2 ? 'block' : 'none' }}>
@@ -693,7 +786,7 @@ export default function AdminKuppiDashboard() {
                                                             </Box>
                                                         </TableCell>
                                                         <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                            <Typography variant="body2">{note.sessionTitle ?? note.sessionId}</Typography>
+                                                            <Typography variant="body2" color={note.sessionId ? 'primary' : 'text.primary'} sx={{ cursor: note.sessionId ? 'pointer' : 'default' }} onClick={() => note.sessionId && openSessionById(note.sessionId)}>{note.sessionTitle ?? note.sessionId}</Typography>
                                                         </TableCell>
                                                         <TableCell>
                                                             <Typography variant="body2">{renderUploader(note)}</Typography>
@@ -702,16 +795,7 @@ export default function AdminKuppiDashboard() {
                                                             <Typography variant="caption">{note.createdAt ? new Date(note.createdAt).toLocaleDateString() : ''}</Typography>
                                                         </TableCell>
                                                         <TableCell align="right">
-                                                            <Tooltip title="View">
-                                                                <IconButton size="small" onClick={() => { setSelectedNote(note); setViewDialogOpen(true); }}>
-                                                                    <VisibilityIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Delete">
-                                                                <IconButton size="small" color="error" onClick={() => { setSelectedNote(note); setDeleteDialogOpen(true); }}>
-                                                                    <DeleteIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
+                                                            <IconButton size="small" onClick={(e) => handleNoteMenuOpen(e, note)}><MoreVertIcon fontSize="small" /></IconButton>
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -734,72 +818,33 @@ export default function AdminKuppiDashboard() {
                 </MotionCard>
             </Box>
 
-            {/* Notes Dialog for session */}
-            <Dialog open={notesDialogOpen} onClose={() => setNotesDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Session Notes</DialogTitle>
-                <DialogContent>
-                    {selectedSession ? <SessionNotesList sessionId={selectedSession.id} /> : <Typography>No session selected</Typography>}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setNotesDialogOpen(false)}>Close</Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Reschedule Modal */}
-            <RescheduleSessionModal open={rescheduleOpen} session={selectedSession} onClose={() => setRescheduleOpen(false)} onSuccess={() => { setRescheduleOpen(false); handleRefresh(); }} />
-
-            {/* Edit Session Dialog (Admin) */}
-            <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
-                <DialogTitle>Edit Session</DialogTitle>
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField label="Title" fullWidth value={editForm.title ?? ''} onChange={(e) => handleEditChange('title', e.target.value)} />
-                        <TextField label="Description" fullWidth multiline rows={3} value={editForm.description ?? ''} onChange={(e) => handleEditChange('description', e.target.value)} />
-                        <TextField label="Subject" fullWidth value={editForm.subject ?? ''} onChange={(e) => handleEditChange('subject', e.target.value)} />
-                        <TextField label="Live Link" fullWidth value={editForm.liveLink ?? ''} onChange={(e) => handleEditChange('liveLink', e.target.value)} />
-                        <TextField label="Meeting Platform" fullWidth value={editForm.meetingPlatform ?? ''} onChange={(e) => handleEditChange('meetingPlatform', e.target.value)} />
-                        <TextField label="Start Time" type="datetime-local" fullWidth value={editForm.scheduledStartTime ? new Date(editForm.scheduledStartTime).toISOString().slice(0,16) : ''} onChange={(e) => handleEditChange('scheduledStartTime', new Date(e.target.value).toISOString())} InputLabelProps={{ shrink: true }} />
-                        <TextField label="End Time" type="datetime-local" fullWidth value={editForm.scheduledEndTime ? new Date(editForm.scheduledEndTime).toISOString().slice(0,16) : ''} onChange={(e) => handleEditChange('scheduledEndTime', new Date(e.target.value).toISOString())} InputLabelProps={{ shrink: true }} />
-                    </Stack>
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-                    <Button variant="contained" onClick={handleSaveEdit} disabled={actionLoading || isSessionUpdating}>{actionLoading || isSessionUpdating ? <CircularProgress size={20} /> : 'Save'}</Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Application Action Menu */}
-            <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                <MenuItem onClick={handleViewApplication}><VisibilityIcon sx={{ mr: 1.5, fontSize: 20 }} />View Details</MenuItem>
-                {selectedApp?.canBeApproved && (
-                    <MenuItem onClick={() => { handleMenuClose(); setApproveDialogOpen(true); }} sx={{ color: 'success.main' }}>
-                        <ThumbUpIcon sx={{ mr: 1.5, fontSize: 20 }} />Approve
-                    </MenuItem>
-                )}
-                {selectedApp?.canBeRejected && (
-                    <MenuItem onClick={() => { handleMenuClose(); setRejectDialogOpen(true); }} sx={{ color: 'error.main' }}>
-                        <ThumbDownIcon sx={{ mr: 1.5, fontSize: 20 }} />Reject
-                    </MenuItem>
-                )}
-                {selectedApp?.status === 'PENDING' && (
-                    <MenuItem onClick={handleMarkUnderReview} sx={{ color: 'info.main' }}>
-                        <HourglassEmptyIcon sx={{ mr: 1.5, fontSize: 20 }} />Mark Under Review
-                    </MenuItem>
-                )}
-            </Menu>
-
             {/* View Application Dialog */}
-            <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
+            <Dialog open={viewDialogOpen} onClose={() => {
+                // clear selections when closing
+                setViewDialogOpen(false);
+                setSelectedNote(null);
+                setSelectedSession(null);
+                setSelectedApp(null);
+            }} maxWidth="md" fullWidth>
                 <DialogTitle>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="h6" fontWeight={600}>Application Details</Typography>
-                        <IconButton onClick={() => setViewDialogOpen(false)} size="small"><CloseIcon /></IconButton>
+                        <Typography variant="h6" fontWeight={600}>{viewMode === 'application' ? 'Application Details' : viewMode === 'session' ? 'Session Details' : viewMode === 'note' ? 'Note Details' : 'Details'}</Typography>
+                        <IconButton onClick={() => {
+                            // clear selections when closing
+                            setViewDialogOpen(false);
+                            setSelectedNote(null);
+                            setSelectedSession(null);
+                            setSelectedApp(null);
+                            setViewMode(null);
+                        }} size="small"><CloseIcon /></IconButton>
                     </Stack>
                 </DialogTitle>
                 <DialogContent dividers>
-                    {isApplicationLoading ? (
+                    {/* show spinner while application detail loads, or while session detail is being fetched */}
+                    {(isApplicationLoading && selectedApplication) || (isSessionLoading && !selectedSession) || (isNoteLoading && !selectedNote) ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
-                    ) : selectedApplication ? (
+                    ) : viewMode === 'application' && selectedApplication ? (
+                        // Application view (unchanged)
                         <Stack spacing={3}>
                             <Stack direction="row" spacing={2} alignItems="center">
                                 <Avatar sx={{ width: 64, height: 64, bgcolor: theme.palette.primary.main }}>{selectedApplication.studentName?.[0]}</Avatar>
@@ -813,64 +858,226 @@ export default function AdminKuppiDashboard() {
                                 <Grid size={{ xs: 6 }}><Typography variant="caption" color="text.secondary">GPA</Typography><Typography variant="body1" fontWeight={600}>{selectedApplication.currentGpa.toFixed(2)}</Typography></Grid>
                                 <Grid size={{ xs: 6 }}><Typography variant="caption" color="text.secondary">Semester</Typography><Typography variant="body1">{selectedApplication.currentSemester}</Typography></Grid>
                                 <Grid size={{ xs: 6 }}><Typography variant="caption" color="text.secondary">Level</Typography><Typography variant="body1">{selectedApplication.preferredExperienceLevel}</Typography></Grid>
-                                <Grid size={{ xs: 6 }}><Typography variant="caption" color="text.secondary">Status</Typography><Chip icon={getApplicationStatusIcon(selectedApplication.status)} label={selectedApplication.statusDisplayName} size="small" sx={{ bgcolor: alpha(APPLICATION_STATUS_COLORS[selectedApplication.status], 0.1), color: APPLICATION_STATUS_COLORS[selectedApplication.status], '& .MuiChip-icon': { color: 'inherit' } }} /></Grid>
+                                {(() => {
+                                    const appColor = APPLICATION_STATUS_COLORS[(selectedApplication.status as ApplicationStatus)] ?? '#6B7280';
+                                    return (<Grid size={{ xs: 6 }}>
+                                        <Typography variant="caption" color="text.secondary">Status</Typography>
+                                        <Chip icon={getApplicationStatusIcon(selectedApplication.status)} label={selectedApplication.statusDisplayName} size="small" sx={{ bgcolor: alpha(appColor, 0.1), color: appColor, '& .MuiChip-icon': { color: 'inherit' } }} />
+                                    </Grid>);
+                                })()}
                             </Grid>
                             <Box><Typography variant="caption" color="text.secondary">Subjects</Typography><Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5, gap: 0.5 }}>{selectedApplication.subjectsToTeach.map((s, i) => <Chip key={i} label={s} size="small" />)}</Stack></Box>
                             <Box><Typography variant="caption" color="text.secondary">Motivation</Typography><Typography variant="body2">{selectedApplication.motivation}</Typography></Box>
                             {selectedApplication.relevantExperience && <Box><Typography variant="caption" color="text.secondary">Experience</Typography><Typography variant="body2">{selectedApplication.relevantExperience}</Typography></Box>}
                         </Stack>
+                    ) : viewMode === 'session' && selectedSession ? (
+                        // Session view (expanded for admin)
+                        <Stack spacing={3}>
+                            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+                                <Box>
+                                    <Typography variant="h6" fontWeight={700}>{selectedSession.title}</Typography>
+                                    <Typography variant="body2" color="text.secondary">{selectedSession.subject} — Hosted by {selectedSession.host?.fullName ?? selectedSession.host?.name}</Typography>
+                                </Box>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <Chip label={selectedSession.isActive ? 'Active' : 'Inactive'} color={selectedSession.isActive ? 'success' : 'default'} size="small" />
+                                    <Chip label={selectedSession.canJoin ? 'Joinable' : 'Not Joinable'} color={selectedSession.canJoin ? 'success' : 'error'} size="small" />
+                                </Stack>
+                            </Stack>
+                            <Divider />
+                            <Grid container spacing={2}>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <Typography variant="caption" color="text.secondary">Description</Typography>
+                                    <Typography variant="body2">{selectedSession.description ?? '—'}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <Typography variant="caption" color="text.secondary">Platform / Link</Typography>
+                                    <Typography variant="body1">{selectedSession.meetingPlatform ?? selectedSession.sessionType ?? '—'}</Typography>
+                                    {selectedSession.liveLink && (
+                                        <Typography variant="body2" color="primary" sx={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => window.open(selectedSession.liveLink, '_blank')}>{selectedSession.liveLink}</Typography>
+                                    )}
+                                </Grid>
+
+                                <Grid size={{ xs: 12, md: 4 }}>
+                                    <Typography variant="caption" color="text.secondary">Scheduled Start</Typography>
+                                    <Typography variant="body1">{selectedSession.scheduledStartTime ? new Date(selectedSession.scheduledStartTime).toLocaleString() : '—'}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 12, md: 4 }}>
+                                    <Typography variant="caption" color="text.secondary">Scheduled End</Typography>
+                                    <Typography variant="body1">{selectedSession.scheduledEndTime ? new Date(selectedSession.scheduledEndTime).toLocaleString() : '—'}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 12, md: 4 }}>
+                                    <Typography variant="caption" color="text.secondary">Duration</Typography>
+                                    <Typography variant="body1">{selectedSession.scheduledStartTime && selectedSession.scheduledEndTime ? `${Math.round((new Date(selectedSession.scheduledEndTime).getTime() - new Date(selectedSession.scheduledStartTime).getTime())/60000)} mins` : '—'}</Typography>
+                                </Grid>
+
+                                <Grid size={{ xs: 6, md: 3 }}>
+                                    <Typography variant="caption" color="text.secondary">Views</Typography>
+                                    <Typography variant="body1">{selectedSession.viewCount ?? 0}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 6, md: 3 }}>
+                                    <Typography variant="caption" color="text.secondary">Notes</Typography>
+                                    <Typography variant="body1">{selectedSession.notes ? selectedSession.notes.length : '—'}</Typography>
+                                </Grid>
+                            </Grid>
+                        </Stack>
+                    ) : viewMode === 'note' && selectedNote ? (
+                        // Note view styled like Session view (title + chips on top, description/file left, uploader right, metrics row)
+                        <Stack spacing={3}>
+                            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+                                <Box>
+                                    <Typography variant="h6" fontWeight={700}>{selectedNote.title}</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {selectedNote.sessionId ? (
+                                            <span style={{ cursor: 'pointer', color: theme.palette.primary.main }} onClick={() => openSessionById(selectedNote.sessionId, selectedNote)}>{selectedNote.sessionTitle ?? selectedNote.sessionId}</span>
+                                        ) : (
+                                            (selectedNote.sessionTitle ? `${selectedNote.sessionTitle} • Note` : 'Note details')
+                                        )}
+                                    </Typography>
+                                </Box>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <Chip label={selectedNote.isActive ? 'Active' : 'Inactive'} color={selectedNote.isActive ? 'success' : 'default'} size="small" />
+                                    <Chip label={selectedNote.allowDownload ? 'Downloadable' : 'No Download'} color={selectedNote.allowDownload ? 'success' : 'default'} size="small" />
+                                </Stack>
+                            </Stack>
+                            <Divider />
+                            <Grid container spacing={2}>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <Typography variant="caption" color="text.secondary">Description</Typography>
+                                    <Typography variant="body2" sx={{ mb: 1 }}>{selectedNote.description ?? '—'}</Typography>
+
+                                    <Typography variant="caption" color="text.secondary">File</Typography>
+                                    <Box sx={{ mt: 0.5 }}>
+                                        <Typography variant="body2" fontWeight={600}>{selectedNote.fileName ?? '—'}</Typography>
+                                        {selectedNote.fileUrl && (
+                                            <Typography variant="caption" color="primary" sx={{ display: 'block' }}><a href={selectedNote.fileUrl} target="_blank" rel="noreferrer">Open file URL</a></Typography>
+                                        )}
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{selectedNote.fileType ?? ''}{selectedNote.formattedFileSize ? ` • ${selectedNote.formattedFileSize}` : selectedNote.fileSize ? ` • ${selectedNote.fileSize} bytes` : ''}</Typography>
+                                    </Box>
+                                </Grid>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <Typography variant="caption" color="text.secondary">Uploaded By</Typography>
+                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                                        <Box>
+                                            <Typography variant="body1" fontWeight={600}>{(selectedNote as any).uploader?.fullName ?? (selectedNote as any).uploaderName ?? renderUploader(selectedNote)}</Typography>
+                                            <Typography variant="caption" color="text.secondary">{(selectedNote as any).uploader?.email ?? ''}</Typography>
+                                        </Box>
+                                    </Stack>
+                                </Grid>
+
+                                <Grid size={{ xs: 6, md: 3 }}>
+                                    <Typography variant="caption" color="text.secondary">Downloads</Typography>
+                                    <Typography variant="body1">{selectedNote.downloadCount ?? 0}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 6, md: 3 }}>
+                                    <Typography variant="caption" color="text.secondary">Views</Typography>
+                                    <Typography variant="body1">{selectedNote.viewCount ?? 0}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 6, md: 3 }}>
+                                    <Typography variant="caption" color="text.secondary">Note ID</Typography>
+                                    <Typography variant="body1">{selectedNote.id}</Typography>
+                                </Grid>
+                                <Grid size={{ xs: 6, md: 3 }}>
+                                    <Typography variant="caption" color="text.secondary">Created</Typography>
+                                    <Typography variant="body1">{selectedNote.createdAt ? new Date(selectedNote.createdAt).toLocaleString() : '—'}</Typography>
+                                </Grid>
+                            </Grid>
+                        </Stack>
                     ) : null}
                 </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
-                    {selectedApplication?.canBeApproved && <Button variant="contained" color="success" onClick={() => { setViewDialogOpen(false); setApproveDialogOpen(true); }}>Approve</Button>}
-                    {selectedApplication?.canBeRejected && <Button variant="contained" color="error" onClick={() => { setViewDialogOpen(false); setRejectDialogOpen(true); }}>Reject</Button>}
-                </DialogActions>
             </Dialog>
 
-            {/* Approve Dialog */}
+            {/* Approve Application Dialog */}
             <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Approve Application</DialogTitle>
                 <DialogContent>
-                    <Typography sx={{ mb: 2 }}>Approve this application? The student will become a Kuppi host.</Typography>
-                    <TextField label="Review Notes (Optional)" multiline rows={3} fullWidth value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} />
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Are you sure you want to approve this application? The student will be notified.
+                    </Typography>
+                    <TextField
+                        label="Review Notes (optional)"
+                        variant="outlined"
+                        fullWidth
+                        multiline
+                        rows={4}
+                        value={reviewNotes}
+                        onChange={(e) => setReviewNotes(e.target.value)}
+                        sx={{ mb: 2 }}
+                    />
                 </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setApproveDialogOpen(false)}>Cancel</Button>
-                    <Button variant="contained" color="success" onClick={handleApprove} disabled={isApproving}>{isApproving ? <CircularProgress size={20} /> : 'Approve'}</Button>
+                <DialogActions>
+                    <Button onClick={() => setApproveDialogOpen(false)} color="inherit">Cancel</Button>
+                    <Button onClick={handleApprove} variant="contained" color="primary" disabled={isApproving}>
+                        {isApproving ? <CircularProgress size={24} color="inherit" /> : 'Approve'}
+                    </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Reject Dialog */}
+            {/* Reject Application Dialog */}
             <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Reject Application</DialogTitle>
                 <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField label="Rejection Reason" multiline rows={2} fullWidth required value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
-                        <TextField label="Review Notes (Optional)" multiline rows={2} fullWidth value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} />
-                    </Stack>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Are you sure you want to reject this application? The student will be notified.
+                    </Typography>
+                    <TextField
+                        label="Rejection Reason"
+                        variant="outlined"
+                        fullWidth
+                        multiline
+                        rows={4}
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        sx={{ mb: 2 }}
+                    />
+                    <TextField
+                        label="Review Notes (optional)"
+                        variant="outlined"
+                        fullWidth
+                        multiline
+                        rows={4}
+                        value={reviewNotes}
+                        onChange={(e) => setReviewNotes(e.target.value)}
+                        sx={{ mb: 2 }}
+                    />
                 </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
-                    <Button variant="contained" color="error" onClick={handleReject} disabled={isRejecting || !rejectionReason}>{isRejecting ? <CircularProgress size={20} /> : 'Reject'}</Button>
+                <DialogActions>
+                    <Button onClick={() => setRejectDialogOpen(false)} color="inherit">Cancel</Button>
+                    <Button onClick={handleReject} variant="contained" color="error" disabled={isRejecting}>
+                        {isRejecting ? <CircularProgress size={24} color="inherit" /> : 'Reject'}
+                    </Button>
                 </DialogActions>
             </Dialog>
 
             {/* Delete Confirmation Dialog */}
-            <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+            <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Confirm Delete</DialogTitle>
                 <DialogContent>
-                    <Typography>Are you sure you want to delete this {selectedSession ? 'session' : 'note'}? This action cannot be undone.</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Are you sure you want to delete this item? This action cannot be undone.
+                    </Typography>
                 </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-                    <Button variant="contained" color="error" onClick={selectedSession ? handleDeleteSession : handleDeleteNote} disabled={actionLoading || isDeleting}>{actionLoading || isDeleting ? <CircularProgress size={20} /> : 'Delete'}</Button>
+                <DialogActions>
+                    <Button onClick={() => setDeleteDialogOpen(false)} color="inherit">Cancel</Button>
+                    <Button
+                        onClick={selectedSession ? handleDeleteSession : handleDeleteNote}
+                        variant="contained"
+                        color="error"
+                        disabled={actionLoading}
+                    >
+                        {actionLoading ? <CircularProgress size={24} color="inherit" /> : 'Delete'}
+                    </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Snackbar */}
-            <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-                <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} variant="filled" sx={{ borderRadius: 2 }}>{snackbar.message}</Alert>
+            {/* Snackbar for messages */}
+            <Snackbar
+                open={snackbar.open}
+                onClose={() => setSnackbar({ open: false, message: '', severity: 'success' })}
+                autoHideDuration={6000}
+            >
+                <Alert onClose={() => setSnackbar({ open: false, message: '', severity: 'success' })} severity={snackbar.severity} sx={{ width: '100%' }}>
+                    {snackbar.message}
+                </Alert>
             </Snackbar>
         </MotionBox>
     );

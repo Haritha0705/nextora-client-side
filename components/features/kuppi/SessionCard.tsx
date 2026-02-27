@@ -28,7 +28,8 @@ import {
     getParticipationRate,
     formatSessionDate,
     formatSessionTime,
-    getDifficultyColor
+    getDifficultyColor,
+    getDisplayName,
 } from './kuppi.utils';
 
 interface SessionCardProps {
@@ -174,16 +175,16 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                             fontSize: '0.875rem',
                         }}
                     >
-                        {getTutorInitials(session.host.name)}
+                        {getTutorInitials(getDisplayName(session.host))}
                     </Avatar>
                     <Box sx={{ flex: 1 }}>
                         <Typography variant="body2" fontWeight={600} sx={{ color: 'text.primary' }}>
-                            {session.host.name}
+                            {getDisplayName(session.host)}
                         </Typography>
                         <Stack direction="row" alignItems="center" spacing={0.5}>
                             <StarIcon sx={{ fontSize: 14, color: 'warning.main' }} />
                             <Typography variant="caption" color="text.secondary">
-                                {session.host.rating} • {session.host.sessionsHosted} sessions
+                                {session.host?.rating ?? 0} • {session.host?.sessionsHosted ?? 0} sessions
                             </Typography>
                         </Stack>
                     </Box>

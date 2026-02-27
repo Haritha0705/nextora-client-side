@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
     Dialog,
     DialogContent,
@@ -39,6 +39,7 @@ import {
     formatSessionTime,
     getDifficultyColor,
     getRemainingSpots,
+    getDisplayName,
 } from './kuppi.utils';
 import { useAuth } from '@/hooks';
 
@@ -69,7 +70,7 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
 }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const { user } = useAuth();
+    useAuth();
 
     if (!session) return null;
 
@@ -228,23 +229,23 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
                                             fontSize: '1.25rem',
                                         }}
                                     >
-                                        {getTutorInitials(session.host.name)}
+                                        {getTutorInitials(getDisplayName(session.host))}
                                     </Avatar>
                                     <Box sx={{ flex: 1 }}>
                                         <Typography variant="subtitle1" fontWeight={600}>
-                                            {session.host.name}
+                                            {getDisplayName(session.host)}
                                         </Typography>
                                         <Stack direction="row" alignItems="center" spacing={2}>
                                             <Stack direction="row" alignItems="center" spacing={0.5}>
                                                 <SchoolIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
                                                 <Typography variant="caption" color="text.secondary">
-                                                    {session.host.department}
+                                                    {session.host?.department ?? ''}
                                                 </Typography>
                                             </Stack>
                                             <Stack direction="row" alignItems="center" spacing={0.5}>
                                                 <StarIcon sx={{ fontSize: 14, color: 'warning.main' }} />
                                                 <Typography variant="caption" color="text.secondary">
-                                                    {session.host.rating} ({session.host.sessionsHosted} sessions)
+                                                    {session.host?.rating ?? 0} ({session.host?.sessionsHosted ?? 0} sessions)
                                                 </Typography>
                                             </Stack>
                                         </Stack>
@@ -450,4 +451,3 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
         </AnimatePresence>
     );
 };
-
