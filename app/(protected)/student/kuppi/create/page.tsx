@@ -30,6 +30,14 @@ import {
     CreateKuppiSessionRequest,
 } from '@/features/kuppi';
 
+// Allowed file MIME types for client-side validation
+const ALLOWED_FILE_TYPES = [
+    'application/pdf',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+];
+const FILE_ACCEPT = '.pdf,.ppt,.pptx,image/*,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
 const MotionCard = motion.create(Card);
 const MotionBox = motion.create(Box);
 
@@ -73,6 +81,8 @@ export default function CreateKuppiSessionPage() {
     });
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [fileError, setFileError] = useState<string | null>(null);
 
     useEffect(() => { dispatch(checkIsKuppiStudentAsync()); }, [dispatch]);
 
@@ -101,6 +111,11 @@ export default function CreateKuppiSessionPage() {
 
     const handleSubmit = () => {
         if (!validateForm()) return;
+        // validate files before sending
+        if (fileError) {
+            setSnackbar({ open: true, message: fileError, severity: 'error' });
+            return;
+        }
         const sessionData: CreateKuppiSessionRequest = {
             title: formData.title, subject: formData.subject,
             description: formData.description || undefined,
@@ -108,7 +123,29 @@ export default function CreateKuppiSessionPage() {
             scheduledEndTime: `${formData.endDate}T${formData.endTime}:00`,
             liveLink: formData.liveLink, meetingPlatform: formData.meetingPlatform || undefined,
         };
-        dispatch(createSessionAsync(sessionData));
+        dispatch(createSessionAsync({ data: sessionData, files: selectedFiles }));
+    };
+
+    const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFileError(null);
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        const arr: File[] = Array.from(files);
+        // validate types
+        for (const f of arr) {
+            if (!(f.type.startsWith('image/') || ALLOWED_FILE_TYPES.includes(f.type))) {
+                setFileError(`Unsupported file type: ${f.name}`);
+                return;
+            }
+        }
+        // append to existing selection (allow multiple)
+        setSelectedFiles(prev => [...prev, ...arr]);
+        // reset input value to allow re-selecting same file if removed
+        e.currentTarget.value = '';
+    };
+
+    const removeFile = (index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
     };
 
     useEffect(() => {
@@ -242,6 +279,28 @@ export default function CreateKuppiSessionPage() {
                         <Divider />
 
                         {/* ── Actions ── */}
+                        {/* File attachments */}
+                        <Paper elevation={0} sx={{ p: 2, borderRadius: 1, border: '1px dashed', borderColor: 'divider', bgcolor: alpha(theme.palette.background.paper, 0.02) }}>
+                            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                                <DescriptionIcon sx={{ color: 'text.secondary' }} />
+                                <Typography variant="subtitle2" fontWeight={700}>Attach Notes / Slides (optional)</Typography>
+                            </Stack>
+                            <input id="kuppi-files-input" type="file" accept={FILE_ACCEPT} multiple style={{ display: 'none' }} onChange={handleFileInput} />
+                            <label htmlFor="kuppi-files-input">
+                                <Button component="span" startIcon={<DescriptionIcon />} sx={{ textTransform: 'none' }}>
+                                    Add Files
+                                </Button>
+                            </label>
+                            {fileError && <Typography color="error" variant="caption" sx={{ display: 'block', mt: 1 }}>{fileError}</Typography>}
+                            {selectedFiles.length > 0 && (
+                                <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
+                                    {selectedFiles.map((f, idx) => (
+                                        <Chip key={`${f.name}-${idx}`} label={`${f.name} (${Math.round(f.size / 1024)} KB)`} onDelete={() => removeFile(idx)} />
+                                    ))}
+                                </Stack>
+                            )}
+                        </Paper>
+
                         <Stack direction="row" spacing={2} justifyContent="flex-end">
                             <Button variant="outlined" onClick={() => router.back()} sx={{ borderRadius: 1, textTransform: 'none', fontWeight: 600, borderColor: 'divider', color: 'text.secondary' }}>
                                 Cancel

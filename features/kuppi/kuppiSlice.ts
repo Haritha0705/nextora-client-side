@@ -264,27 +264,40 @@ export const fetchMyAnalytics = createAsyncThunk(
 );
 
 export const createSessionAsync = createAsyncThunk(
-    'kuppi/createSession',
-    async (data: CreateKuppiSessionRequest, { rejectWithValue }) => {
+    'kuppi/createSessionWithFiles',
+    async ({ data, files }: { data: CreateKuppiSessionRequest; files?: File[] }, { rejectWithValue }) => {
         try {
-            const response = await kuppiServices.createSession(data);
+            const response = await kuppiServices.createSession(data, files);
             return response;
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            return rejectWithValue(err.response?.data?.message || 'Failed to create session');
+            return rejectWithValue(err.response?.data?.message || 'Failed to create session with files');
         }
     }
 );
 
 export const updateSessionAsync = createAsyncThunk(
-    'kuppi/updateSession',
-    async ({ id, data }: { id: number; data: UpdateKuppiSessionRequest }, { rejectWithValue }) => {
+    'kuppi/updateSessionWithFiles',
+    async ({ id, data, files, removeNoteIds }: { id: number; data?: Partial<UpdateKuppiSessionRequest>; files?: File[]; removeNoteIds?: number[] | string }, { rejectWithValue }) => {
         try {
-            const response = await kuppiServices.updateSession(id, data);
+            const response = await kuppiServices.updateSession(id, data, files, removeNoteIds);
             return response;
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
-            return rejectWithValue(err.response?.data?.message || 'Failed to update session');
+            return rejectWithValue(err.response?.data?.message || 'Failed to update session with files');
+        }
+    }
+);
+
+export const deleteSessionAsync = createAsyncThunk(
+    'kuppi/softDeleteSessionWithFiles',
+    async (id: number, { rejectWithValue }) => {
+        try {
+            const response = await kuppiServices.deleteSession(id);
+            return { id, response };
+        } catch (error: unknown) {
+            const err = error as { response?: { data?: { message?: string } } };
+            return rejectWithValue(err.response?.data?.message || 'Failed to soft-delete session with files');
         }
     }
 );
@@ -298,19 +311,6 @@ export const cancelSessionAsync = createAsyncThunk(
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
             return rejectWithValue(err.response?.data?.message || 'Failed to cancel session');
-        }
-    }
-);
-
-export const deleteSessionAsync = createAsyncThunk(
-    'kuppi/deleteSession',
-    async (id: number, { rejectWithValue }) => {
-        try {
-            const response = await kuppiServices.deleteSession(id);
-            return { id, response };
-        } catch (error: unknown) {
-            const err = error as { response?: { data?: { message?: string } } };
-            return rejectWithValue(err.response?.data?.message || 'Failed to delete session');
         }
     }
 );
@@ -847,47 +847,6 @@ const kuppiSlice = createSlice({
             state.myAnalytics = action.payload;
         });
 
-        // Create Session
-        builder.addCase(createSessionAsync.pending, (state) => {
-            state.isCreating = true;
-        });
-        builder.addCase(createSessionAsync.fulfilled, (state, action) => {
-            state.isCreating = false;
-            state.successMessage = action.payload.message || 'Session created successfully';
-        });
-        builder.addCase(createSessionAsync.rejected, (state, action) => {
-            state.isCreating = false;
-            state.error = action.payload as string;
-        });
-
-        // Update Session
-        builder.addCase(updateSessionAsync.pending, (state) => {
-            state.isUpdating = true;
-        });
-        builder.addCase(updateSessionAsync.fulfilled, (state, action) => {
-            state.isUpdating = false;
-            state.successMessage = action.payload.message || 'Session updated successfully';
-        });
-        builder.addCase(updateSessionAsync.rejected, (state, action) => {
-            state.isUpdating = false;
-            state.error = action.payload as string;
-        });
-
-        // Delete Session
-        builder.addCase(deleteSessionAsync.pending, (state) => {
-            state.isDeleting = true;
-        });
-        builder.addCase(deleteSessionAsync.fulfilled, (state, action) => {
-            state.isDeleting = false;
-            state.sessions = state.sessions.filter(s => s.id !== action.payload.id);
-            state.mySessions = state.mySessions.filter(s => s.id !== action.payload.id);
-            state.successMessage = 'Session deleted successfully';
-        });
-        builder.addCase(deleteSessionAsync.rejected, (state, action) => {
-            state.isDeleting = false;
-            state.error = action.payload as string;
-        });
-
         // Admin: Soft-delete session (remove from lists)
         builder.addCase(adminSoftDeleteSessionAsync.pending, (state) => {
             state.isDeleting = true;
@@ -924,6 +883,65 @@ const kuppiSlice = createSlice({
         });
         builder.addCase(adminUpdateSessionAsync.rejected, (state, action) => {
             state.isUpdating = false;
+            state.error = action.payload as string;
+        });
+
+        // Create Session (with files)
+        builder.addCase(createSessionAsync.pending, (state) => {
+            state.isCreating = true;
+        });
+        builder.addCase(createSessionAsync.fulfilled, (state, action) => {
+            state.isCreating = false;
+            state.successMessage = action.payload?.message || 'Session created successfully';
+            const created = action.payload?.data;
+            if (created) {
+                // add to top of lists
+                state.sessions = [created as any, ...state.sessions];
+                state.mySessions = [created as any, ...state.mySessions];
+                state.totalSessions = (state.totalSessions || 0) + 1;
+            }
+        });
+        builder.addCase(createSessionAsync.rejected, (state, action) => {
+            state.isCreating = false;
+            state.error = action.payload as string;
+        });
+
+        // Update Session (with files)
+        builder.addCase(updateSessionAsync.pending, (state) => {
+            state.isUpdating = true;
+        });
+        builder.addCase(updateSessionAsync.fulfilled, (state, action) => {
+            state.isUpdating = false;
+            state.successMessage = action.payload?.message || 'Session updated successfully';
+            const updated = action.payload?.data;
+            if (updated) {
+                state.sessions = state.sessions.map(s => (s.id === updated.id ? updated : s));
+                state.mySessions = state.mySessions.map(s => (s.id === updated.id ? updated : s));
+                if (state.selectedSession?.id === updated.id) state.selectedSession = updated;
+            }
+        });
+        builder.addCase(updateSessionAsync.rejected, (state, action) => {
+            state.isUpdating = false;
+            state.error = action.payload as string;
+        });
+
+        // Soft-delete Session (with files) - student owner endpoint
+        builder.addCase(deleteSessionAsync.pending, (state) => {
+            state.isDeleting = true;
+        });
+        builder.addCase(deleteSessionAsync.fulfilled, (state, action) => {
+            state.isDeleting = false;
+            const id = action.payload?.id;
+            if (typeof id === 'number') {
+                state.sessions = state.sessions.filter(s => s.id !== id);
+                state.mySessions = state.mySessions.filter(s => s.id !== id);
+                if (state.selectedSession?.id === id) state.selectedSession = null;
+                state.totalSessions = Math.max(0, state.totalSessions - 1);
+                state.successMessage = action.payload.response?.message || 'Session deleted successfully';
+            }
+        });
+        builder.addCase(deleteSessionAsync.rejected, (state, action) => {
+            state.isDeleting = false;
             state.error = action.payload as string;
         });
 
@@ -1241,6 +1259,12 @@ export const selectKuppiIsDeleting = (state: { kuppi: KuppiState }) => state.kup
 
 export const selectKuppiError = (state: { kuppi: KuppiState }) => state.kuppi.error;
 export const selectKuppiSuccessMessage = (state: { kuppi: KuppiState }) => state.kuppi.successMessage;
+
+// ============================================================================
+// Backwards-compatibility aliases for older thunk names used across the app
+export const createSessionWithFilesAsync = createSessionAsync;
+export const updateSessionWithFilesAsync = updateSessionAsync;
+export const softDeleteSessionWithFilesAsync = deleteSessionAsync;
 
 // ============================================================================
 // Exports

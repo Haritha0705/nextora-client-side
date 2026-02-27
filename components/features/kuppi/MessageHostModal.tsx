@@ -10,9 +10,7 @@ import {
     Avatar,
     IconButton,
     TextField,
-    Button,
     Chip,
-    Divider,
     alpha,
     useTheme,
     useMediaQuery,
@@ -28,7 +26,7 @@ import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 import CheckIcon from '@mui/icons-material/Check';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import { KuppiHost, KuppiMessage, KuppiSession } from '@/types/kuppi';
-import { getTutorInitials } from './kuppi.utils';
+import { getTutorInitials, getDisplayName } from './kuppi.utils';
 
 interface MessageHostModalProps {
     host: KuppiHost | null;
@@ -69,7 +67,7 @@ export const MessageHostModal: React.FC<MessageHostModalProps> = ({
     // Initialize messages when modal opens
     useEffect(() => {
         if (open && host) {
-            setMessages(generateSampleMessages(host.id, host.name));
+            setMessages(generateSampleMessages(host.id, getDisplayName(host)));
         }
     }, [open, host]);
 
@@ -91,7 +89,7 @@ export const MessageHostModal: React.FC<MessageHostModalProps> = ({
             senderId: 'current-user',
             senderName: 'You',
             receiverId: host.id,
-            receiverName: host.name,
+            receiverName: getDisplayName(host),
             content: newMessage.trim(),
             timestamp: new Date().toISOString(),
             isRead: false,
@@ -111,7 +109,7 @@ export const MessageHostModal: React.FC<MessageHostModalProps> = ({
             const replyMessage: KuppiMessage = {
                 id: `msg-${Date.now()}`,
                 senderId: host.id,
-                senderName: host.name,
+                senderName: getDisplayName(host),
                 receiverId: 'current-user',
                 receiverName: 'You',
                 content: getAutoReply(newMessage),
@@ -191,7 +189,7 @@ export const MessageHostModal: React.FC<MessageHostModalProps> = ({
                                         fontWeight: 700,
                                     }}
                                 >
-                                    {getTutorInitials(host.name)}
+                                    {getTutorInitials(getDisplayName(host))}
                                 </Avatar>
                                 <Box>
                                     <Typography variant="subtitle1" fontWeight={600}>
@@ -258,7 +256,7 @@ export const MessageHostModal: React.FC<MessageHostModalProps> = ({
                         {/* Welcome message */}
                         <Box sx={{ textAlign: 'center', py: 2 }}>
                             <Typography variant="caption" color="text.secondary">
-                                Start a conversation with {host.name}
+                                Start a conversation with {getDisplayName(host)}
                             </Typography>
                         </Box>
 
@@ -348,7 +346,7 @@ export const MessageHostModal: React.FC<MessageHostModalProps> = ({
                                 placeholder="Type your message..."
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
-                                onKeyPress={handleKeyPress}
+                                onKeyDown={handleKeyPress}
                                 disabled={isSending}
                                 sx={{
                                     '& .MuiOutlinedInput-root': {

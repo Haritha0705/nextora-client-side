@@ -39,7 +39,6 @@ import {
     KuppiDateRangeParams,
     ApplicationStatus,
 } from './types';
-import { AllUsersResponse, SUPER_ADMIN_ENDPOINTS } from "@/features";
 
 // ============================================================================
 // Endpoints
@@ -49,6 +48,8 @@ export const KUPPI_ENDPOINTS = {
     // Session Endpoints
     SESSIONS: '/kuppi/sessions', //get,post,put
     SESSION_BY_ID: (id: number) => `/kuppi/sessions/${id}`, //get
+    // Student soft-delete (removes files) endpoint
+    SESSION_SOFT_DELETE: (id: number) => `/kuppi/sessions/${id}/soft-with-files`,
     SESSIONS_SEARCH: '/kuppi/sessions/search', //get
     SESSIONS_SEARCH_SUBJECT: '/kuppi/sessions/search/subject', //get
     SESSIONS_SEARCH_HOST: '/kuppi/sessions/search/host', //get
@@ -168,13 +169,78 @@ export async function getUpcomingSessions(params: KuppiPaginationParams = {}): P
     return response.data;
 }
 
-export async function createSession(data: CreateKuppiSessionRequest): Promise<KuppiSessionDetailResponse> {
-    const response = await apiClient.post<KuppiSessionDetailResponse>(KUPPI_ENDPOINTS.SESSIONS, data);
+
+// Create session with optional files (multipart/form-data)
+export async function createSession(data: CreateKuppiSessionRequest, files?: File[]): Promise<KuppiSessionDetailResponse> {
+    const formData = new FormData();
+
+    // Required fields
+    formData.append('title', data.title);
+    formData.append('subject', data.subject);
+    formData.append('scheduledStartTime', data.scheduledStartTime);
+    formData.append('scheduledEndTime', data.scheduledEndTime);
+    formData.append('liveLink', data.liveLink);
+
+    // Optional fields
+    if (data.description) formData.append('description', data.description);
+    if (data.meetingPlatform) formData.append('meetingPlatform', data.meetingPlatform);
+
+    // Accept multiple param names for convenience
+    if (files && files.length) {
+        const allowedTypes = ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        files.forEach((file) => {
+            // Basic client-side validation: allow image/* and the above types
+            if (file.type.startsWith('image/') || allowedTypes.includes(file.type)) {
+                formData.append('files', file);
+            } else {
+                // still append — server will validate; but skip unknown types to be conservative
+                // (could also throw or return a rejected Promise)
+            }
+        });
+    }
+
+    const response = await apiClient.post<KuppiSessionDetailResponse>(KUPPI_ENDPOINTS.SESSIONS, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
 }
 
-export async function updateSession(id: number, data: UpdateKuppiSessionRequest): Promise<KuppiSessionDetailResponse> {
-    const response = await apiClient.put<KuppiSessionDetailResponse>(KUPPI_ENDPOINTS.SESSION_BY_ID(id), data);
+// Update session and optionally add/replace files
+export async function updateSession(id: number, data: Partial<UpdateKuppiSessionRequest> = {}, files?: File[], removeNoteIds?: number[] | string): Promise<KuppiSessionDetailResponse> {
+    const formData = new FormData();
+
+    // Append provided fields
+    if (data.title) formData.append('title', data.title);
+    if (data.subject) formData.append('subject', data.subject);
+    if (data.scheduledStartTime) formData.append('scheduledStartTime', data.scheduledStartTime);
+    if (data.scheduledEndTime) formData.append('scheduledEndTime', data.scheduledEndTime);
+    if (data.liveLink) formData.append('liveLink', data.liveLink);
+    if (data.description) formData.append('description', data.description);
+    if (data.meetingPlatform) formData.append('meetingPlatform', data.meetingPlatform);
+
+    // removeNoteIds can be provided as array or CSV string
+    if (removeNoteIds) {
+        if (Array.isArray(removeNoteIds)) {
+            removeNoteIds.forEach((id) => formData.append('removeNoteIds', String(id)));
+        } else {
+            // string (CSV)
+            formData.append('removeNoteIds', removeNoteIds);
+        }
+    }
+
+    if (files && files.length) {
+        const allowedTypes = ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        files.forEach((file) => {
+            if (file.type.startsWith('image/') || allowedTypes.includes(file.type)) {
+                formData.append('files', file);
+            }
+        });
+    }
+
+    const url = `${KUPPI_ENDPOINTS.SESSIONS}/${id}/upload`;
+    const response = await apiClient.put<KuppiSessionDetailResponse>(url, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
 }
 
@@ -191,7 +257,8 @@ export async function rescheduleSession(id: number, newStartTime: string, newEnd
 }
 
 export async function deleteSession(id: number): Promise<KuppiActionResponse> {
-    const response = await apiClient.delete<KuppiActionResponse>(KUPPI_ENDPOINTS.SESSION_BY_ID(id));
+    // Student-level soft-delete that removes files (best-effort on server side)
+    const response = await apiClient.delete<KuppiActionResponse>(KUPPI_ENDPOINTS.SESSION_SOFT_DELETE(id));
     return response.data;
 }
 

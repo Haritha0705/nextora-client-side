@@ -56,13 +56,18 @@ export function useSessionFilters(sessions: KuppiSession[], savedIds: Set<string
         // Filter by search query
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
-            result = result.filter(
-                (session) =>
-                    session.title.toLowerCase().includes(query) ||
-                    session.subject.toLowerCase().includes(query) ||
-                    session.host.name.toLowerCase().includes(query) ||
-                    session.topics.some((topic) => topic.toLowerCase().includes(query))
-            );
+            result = result.filter((session) => {
+                const title = session.title || '';
+                const subject = session.subject || '';
+                const hostName = session.host?.name || session.host?.fullName || '';
+                const topicsText = (session.topics || []).join(' ').toLowerCase();
+                return (
+                    title.toLowerCase().includes(query) ||
+                    subject.toLowerCase().includes(query) ||
+                    hostName.toLowerCase().includes(query) ||
+                    topicsText.includes(query)
+                );
+            });
         }
 
         // Filter by subject

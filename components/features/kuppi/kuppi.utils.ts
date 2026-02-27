@@ -5,13 +5,29 @@
 /**
  * Get initials from tutor name
  */
-export function getTutorInitials(name: string): string {
+export function getTutorInitials(name?: string): string {
+    if (!name) return '??';
     return name
         .split(' ')
-        .map((n) => n[0])
+        .map((n) => (n ? n[0] : ''))
         .join('')
         .toUpperCase()
         .slice(0, 2);
+}
+
+/**
+ * Safely derive a display name for a host or a raw name string
+ */
+export function getDisplayName(hostOrName?: any): string {
+    if (!hostOrName) return 'Unknown';
+    if (typeof hostOrName === 'string') return hostOrName || 'Unknown';
+    // try common host shapes
+    const name = hostOrName.name || hostOrName.fullName || (hostOrName.firstName && hostOrName.lastName ? `${hostOrName.firstName} ${hostOrName.lastName}` : undefined);
+    if (name) return name;
+    // fallback to email or id if present
+    if (hostOrName.email) return hostOrName.email;
+    if (hostOrName.id) return String(hostOrName.id);
+    return 'Unknown';
 }
 
 /**
@@ -92,4 +108,3 @@ export function getStatusColor(status: string): 'success' | 'warning' | 'error' 
             return 'default';
     }
 }
-
