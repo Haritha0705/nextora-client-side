@@ -30,6 +30,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DescriptionIcon from '@mui/icons-material/Description';
+import GetAppIcon from '@mui/icons-material/GetApp';
 
 import { SAMPLE_SESSIONS } from '@/lib/constants/kuppi.constants';
 import {
@@ -41,7 +42,9 @@ import {
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
     fetchSessionById,
+    fetchNotesBySessionAsync,
     selectKuppiSelectedSession, selectKuppiIsSessionLoading, selectKuppiSessions,
+    selectKuppiIsNoteLoading,
     updateSessionAsync, selectKuppiIsUpdating,
     selectKuppiError, selectKuppiSuccessMessage,
     clearKuppiError, clearKuppiSuccessMessage,
@@ -160,6 +163,8 @@ export default function KuppiSessionDetailPage() {
     const selectedSession = useAppSelector(selectKuppiSelectedSession);
     const isSessionLoading = useAppSelector(selectKuppiIsSessionLoading);
     const sessionsList = useAppSelector(selectKuppiSessions);
+    const isNoteLoading = useAppSelector(selectKuppiIsNoteLoading);
+    // Other redux selectors used in the UI
     const isUpdating = useAppSelector(selectKuppiIsUpdating);
     const isDeleting = useAppSelector(selectKuppiIsDeleting);
     const reduxError = useAppSelector(selectKuppiError);
@@ -167,6 +172,7 @@ export default function KuppiSessionDetailPage() {
 
     // Check if user is a Kuppi Student (host) on mount
     useEffect(() => { dispatch(checkIsKuppiStudentAsync()); }, [dispatch]);
+
 
     // Try to load from backend when sessionId looks numeric or 'session-<number>' slug
     useEffect(() => {
@@ -449,6 +455,28 @@ export default function KuppiSessionDetailPage() {
 
     const removeEditFile = (index: number) => setSelectedEditFiles(prev => prev.filter((_, i) => i !== index));
 
+    // Notes: read notes map from the store and compute the notes to display for this session.
+    // Prefer notes embedded in the session payload (server may include them). Otherwise use the notesBySession map.
+    const notesBySessionMap = useAppSelector((state: any) => state.kuppi?.notesBySession || {});
+    const sessionNotes = useMemo(() => {
+        try {
+            const s: any = session;
+            if (s && Array.isArray(s.notes) && s.notes.length > 0) return s.notes;
+            const sid = s?.id ?? (Number(sessionId) && !Number.isNaN(Number(sessionId)) ? Number(sessionId) : undefined);
+            if (sid && notesBySessionMap && Array.isArray(notesBySessionMap[sid])) return notesBySessionMap[sid];
+        } catch (e) {
+            // ignore and fallthrough
+        }
+        return [] as any[];
+    }, [session, notesBySessionMap, sessionId]);
+
+    // Ensure we fetch notes for the currently resolved session id (handles cases where session arrives later)
+    useEffect(() => {
+        const sid = session?.id ?? (Number(sessionId) && !Number.isNaN(Number(sessionId)) ? Number(sessionId) : undefined);
+        if (!sid) return;
+        dispatch(fetchNotesBySessionAsync(Number(sid)));
+    }, [dispatch, session?.id, sessionId]);
+
     // Clear redux messages
     useEffect(() => {
         if (reduxError) dispatch(clearKuppiError());
@@ -487,6 +515,7 @@ export default function KuppiSessionDetailPage() {
 
     const statusConfig = getStatusConfig(session.status);
     const timeRange = formatTimeRange(session.scheduledStartTime, session.scheduledEndTime);
+
 
     const handleCopyLink = (link: string) => {
         navigator.clipboard.writeText(link);
@@ -718,9 +747,54 @@ export default function KuppiSessionDetailPage() {
                                 </MotionBox>
                             )}
 
-                            {/* ── Host Edit Button ── */}
-                            {isHost && (
-                                <Box sx={{ mt: 3 }}>
+                            {/* ── Attached Notes / Slides ── */}
+                            <MotionBox {...stagger(4)}>
+                                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5, color: 'text.primary' }}>Attached Notes & Slides</Typography>
+                                <Paper variant="outlined" sx={{ p: 2, borderRadius: 1, borderColor: 'divider' }}>
+                                    {isNoteLoading ? (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+                                            <CircularProgress size={20} />
+                                        </Box>
+                                    ) : (!sessionNotes || sessionNotes.length === 0) ? (
+                                        <Typography variant="body2" color="text.secondary">No notes or slides attached to this session.</Typography>
+                                    ) : (
+                                        <Stack spacing={1}>
+                                            {sessionNotes.map((note: any) => (
+                                                <Paper key={note.id} variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                                                        <DescriptionIcon sx={{ color: 'text.secondary' }} />
+                                                        <Box sx={{ minWidth: 0 }}>
+                                                            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>{note.title}</Typography>
+                                                            <Typography variant="caption" color="text.secondary" noWrap>{note.fileName} · {note.formattedFileSize || `${Math.round((note.fileSize||0)/1024)} KB`}</Typography>
+                                                        </Box>
+                                                    </Stack>
+                                                    <Stack direction="row" spacing={1}>
+                                                        {note.fileUrl && (
+                                                            <Tooltip title="Open">
+                                                                <IconButton size="small" onClick={() => window.open(note.fileUrl, '_blank')}>
+                                                                    <VisibilityIcon sx={{ fontSize: 18 }} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
+                                                        {note.fileUrl && (
+                                                            <Tooltip title="Download">
+                                                                <IconButton size="small" component="a" href={note.fileUrl} target="_blank" rel="noreferrer" download>
+                                                                    <GetAppIcon sx={{ fontSize: 18 }} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}
+                                                    </Stack>
+                                                </Paper>
+                                            ))}
+                                        </Stack>
+                                    )}
+                                </Paper>
+                                <Divider sx={{ my: 3 }} />
+                            </MotionBox>
+
+                             {/* ── Host Edit Button ── */}
+                             {isHost && (
+                                 <Box sx={{ mt: 3 }}>
                                     <Button
                                         variant="contained"
                                         startIcon={<EditIcon />}

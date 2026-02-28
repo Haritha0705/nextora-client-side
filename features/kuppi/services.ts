@@ -4,6 +4,7 @@
  */
 
 import apiClient from '@/lib/api-client';
+import { AxiosProgressEvent } from 'axios';
 import {
     // Session Types
     KuppiSessionsResponse,
@@ -171,7 +172,7 @@ export async function getUpcomingSessions(params: KuppiPaginationParams = {}): P
 
 
 // Create session with optional files (multipart/form-data)
-export async function createSession(data: CreateKuppiSessionRequest, files?: File[]): Promise<KuppiSessionDetailResponse> {
+export async function createSession(data: CreateKuppiSessionRequest, files?: File[], options?: { onProgress?: (percent: number) => void; signal?: AbortSignal; maxFileSize?: number }): Promise<KuppiSessionDetailResponse> {
     const formData = new FormData();
 
     // Required fields
@@ -188,25 +189,32 @@ export async function createSession(data: CreateKuppiSessionRequest, files?: Fil
     // Accept multiple param names for convenience
     if (files && files.length) {
         const allowedTypes = ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        const maxSize = options?.maxFileSize ?? 10 * 1024 * 1024; // 10MB default
         files.forEach((file) => {
             // Basic client-side validation: allow image/* and the above types
-            if (file.type.startsWith('image/') || allowedTypes.includes(file.type)) {
-                formData.append('files', file);
-            } else {
-                // still append — server will validate; but skip unknown types to be conservative
-                // (could also throw or return a rejected Promise)
+            if ((file.type && file.type.startsWith('image/')) || allowedTypes.includes(file.type)) {
+                if (file.size <= maxSize) formData.append('files', file);
             }
         });
     }
 
     const response = await apiClient.post<KuppiSessionDetailResponse>(KUPPI_ENDPOINTS.SESSIONS, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (evt: AxiosProgressEvent) => {
+            const loaded = evt?.loaded ?? 0;
+            const total = evt?.total ?? 0;
+            if (options?.onProgress && total > 0) {
+                const percent = Math.round((loaded / total) * 100);
+                options.onProgress(percent);
+            }
+        },
+        signal: options?.signal,
     });
-    return response.data;
+    return response.data as KuppiSessionDetailResponse;
 }
 
 // Update session and optionally add/replace files
-export async function updateSession(id: number, data: Partial<UpdateKuppiSessionRequest> = {}, files?: File[], removeNoteIds?: number[] | string): Promise<KuppiSessionDetailResponse> {
+export async function updateSession(id: number, data: Partial<UpdateKuppiSessionRequest> = {}, files?: File[], removeNoteIds?: number[] | string, onProgressOrOptions?: ((percent: number) => void) | { onProgress?: (percent: number) => void; signal?: AbortSignal; maxFileSize?: number }): Promise<KuppiSessionDetailResponse> {
     const formData = new FormData();
 
     // Append provided fields
@@ -228,11 +236,19 @@ export async function updateSession(id: number, data: Partial<UpdateKuppiSession
         }
     }
 
+    let options: { onProgress?: (percent: number) => void; signal?: AbortSignal; maxFileSize?: number } | undefined;
+    if (typeof onProgressOrOptions === 'function') {
+        options = { onProgress: onProgressOrOptions };
+    } else {
+        options = onProgressOrOptions;
+    }
+
     if (files && files.length) {
         const allowedTypes = ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        const maxSize = options?.maxFileSize ?? 10 * 1024 * 1024; // 10MB default
         files.forEach((file) => {
-            if (file.type.startsWith('image/') || allowedTypes.includes(file.type)) {
-                formData.append('files', file);
+            if ((file.type && file.type.startsWith('image/')) || allowedTypes.includes(file.type)) {
+                if (file.size <= maxSize) formData.append('files', file);
             }
         });
     }
@@ -240,8 +256,17 @@ export async function updateSession(id: number, data: Partial<UpdateKuppiSession
     const url = `${KUPPI_ENDPOINTS.SESSIONS}/${id}/upload`;
     const response = await apiClient.put<KuppiSessionDetailResponse>(url, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (evt: AxiosProgressEvent) => {
+            const loaded = evt?.loaded ?? 0;
+            const total = evt?.total ?? 0;
+            if (options?.onProgress && total > 0) {
+                const percent = Math.round((loaded / total) * 100);
+                options.onProgress(percent);
+            }
+        },
+        signal: options?.signal,
     });
-    return response.data;
+    return response.data as KuppiSessionDetailResponse;
 }
 
 export async function cancelSession(id: number, reason?: string): Promise<KuppiActionResponse> {

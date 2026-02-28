@@ -2,43 +2,41 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Box,
-    Typography,
-    Card,
-    CardContent,
-    Grid,
-    Stack,
-    Button,
-    TextField,
-    IconButton,
-    Avatar,
-    Chip,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TablePagination,
-    Menu,
-    MenuItem,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Alert,
-    Snackbar,
-    CircularProgress,
-    Tooltip,
-    alpha,
-    useTheme,
-    Divider,
-    useMediaQuery,
-    Tabs,
-    Tab,
-} from '@mui/material';
+     Box,
+     Typography,
+     Card,
+     CardContent,
+     Grid,
+     Stack,
+     Button,
+     TextField,
+     IconButton,
+     Avatar,
+     Chip,
+     Table,
+     TableBody,
+     TableCell,
+     TableContainer,
+     TableHead,
+     TableRow,
+     TablePagination,
+     Menu,
+     MenuItem,
+     Dialog,
+     DialogTitle,
+     DialogContent,
+     DialogActions,
+     Alert,
+     Snackbar,
+     CircularProgress,
+     alpha,
+     useTheme,
+     Divider,
+     useMediaQuery,
+     Tabs,
+     Tab,
+ } from '@mui/material';
 import { motion } from 'framer-motion';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -56,6 +54,7 @@ import EventIcon from '@mui/icons-material/Event';
 import DescriptionIcon from '@mui/icons-material/Description';
 import VideoCallIcon from '@mui/icons-material/VideoCall';
 import DownloadIcon from '@mui/icons-material/Download';
+import { SessionSearchPanel, SessionsTable, NotesTable, RowActionMenu, KuppiViewDialog, KuppiCommon, ApplicationsTable } from '@/components/kuppi';
 
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
@@ -66,7 +65,9 @@ import {
     adminRejectApplicationAsync,
     adminFetchPlatformStats,
     fetchSessions,
+    fetchSessionById,
     fetchNotes,
+    fetchNoteById,
     setKuppiCurrentPage,
     setKuppiPageSize,
     clearKuppiError,
@@ -99,13 +100,7 @@ import {
 } from '@/features/kuppi';
 import * as kuppiServices from '@/features/kuppi/services';
 
-const MotionBox = motion.create(Box);
 const MotionCard = motion.create(Card);
-
-const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
-};
 
 const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -152,7 +147,6 @@ const getSessionStatusIcon = (status: SessionStatus) => {
 export default function AcademicKuppiDashboard() {
     const theme = useTheme();
     const dispatch = useAppDispatch();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
     // Selectors
@@ -182,6 +176,8 @@ export default function AcademicKuppiDashboard() {
     const [selectedApp, setSelectedApp] = useState<KuppiApplicationResponse | null>(null);
     const [selectedSession, setSelectedSession] = useState<KuppiSessionResponse | null>(null);
     const [selectedNote, setSelectedNote] = useState<KuppiNoteResponse | null>(null);
+    // viewMode allows showing application, session or note in the same dialog
+    const [viewMode, setViewMode] = useState<'application' | 'session' | 'note' | null>(null);
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [approveDialogOpen, setApproveDialogOpen] = useState(false);
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -190,6 +186,13 @@ export default function AcademicKuppiDashboard() {
     const [rejectionReason, setRejectionReason] = useState('');
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
     const [actionLoading, setActionLoading] = useState(false);
+
+    // Session & note menus and search state (admin parity)
+    const [sessionAnchorEl, setSessionAnchorEl] = useState<null | HTMLElement>(null);
+    const [sessionActionTarget, setSessionActionTarget] = useState<KuppiSessionResponse | null>(null);
+    const [noteAnchorEl, setNoteAnchorEl] = useState<null | HTMLElement>(null);
+    const [noteActionTarget, setNoteActionTarget] = useState<KuppiNoteResponse | null>(null);
+    const [filteredSessions, setFilteredSessions] = useState<KuppiSessionResponse[] | null>(null);
 
     // Fetch data on mount
     useEffect(() => {
@@ -200,9 +203,22 @@ export default function AcademicKuppiDashboard() {
         dispatch(fetchNotes({ page: 0, size: pageSize }));
     }, [dispatch, pageSize]);
 
+    // session & note loading flags (for dialog spinners)
+    const isSessionLoading = useAppSelector((state) => (state as any).kuppi?.isSessionLoading ?? false);
+    const isNoteLoading = useAppSelector((state) => (state as any).kuppi?.isNoteLoading ?? false);
+
     const handleMainTabChange = (_: React.SyntheticEvent, newValue: number) => {
         setMainTab(newValue);
         dispatch(setKuppiCurrentPage(0));
+        // Fetch the relevant data immediately when switching tabs so sessions/notes load like admin
+        if (newValue === 0) {
+            dispatch(adminFetchApplications({ page: 0, size: pageSize, status: applicationStatusFilter || undefined }));
+        } else if (newValue === 1) {
+            dispatch(fetchSessions({ page: 0, size: pageSize }));
+            setFilteredSessions(null);
+        } else if (newValue === 2) {
+            dispatch(fetchNotes({ page: 0, size: pageSize }));
+        }
     };
 
     const handleRefresh = useCallback(() => {
@@ -212,6 +228,8 @@ export default function AcademicKuppiDashboard() {
             dispatch(adminFetchApplications({ page, size: pageSize, status: applicationStatusFilter || undefined }));
         } else if (mainTab === 1) {
             dispatch(fetchSessions({ page, size: pageSize }));
+            // clear any client-side session filters when refreshing
+            setFilteredSessions(null);
         } else if (mainTab === 2) {
             dispatch(fetchNotes({ page, size: pageSize }));
         }
@@ -224,12 +242,114 @@ export default function AcademicKuppiDashboard() {
 
     const handleMenuClose = () => setAnchorEl(null);
 
+    // Session action menu handlers
+    const handleSessionMenuOpen = (event: React.MouseEvent<HTMLElement>, session: KuppiSessionResponse) => {
+        setSessionAnchorEl(event.currentTarget);
+        setSessionActionTarget(session);
+    };
+    const handleSessionMenuClose = () => {
+        setSessionAnchorEl(null);
+        setSessionActionTarget(null);
+    };
+
+    const handleSessionView = async () => {
+        handleSessionMenuClose();
+        if (sessionActionTarget) {
+            // clear other selections
+            setSelectedApp(null);
+            setSelectedNote(null);
+            setSelectedSession(null);
+            setViewMode('session');
+            setViewDialogOpen(true);
+            try {
+                const session = await dispatch((fetchSessionById as any)(sessionActionTarget.id)).unwrap();
+                setSelectedSession(session as KuppiSessionResponse);
+            } catch (err: unknown) {
+                setSnackbar({ open: true, message: (err as any)?.message || 'Failed to fetch session', severity: 'error' });
+                setViewDialogOpen(false);
+                setViewMode(null);
+            }
+        }
+    };
+
+    const handleSessionDeleteConfirm = () => {
+        handleSessionMenuClose();
+        if (sessionActionTarget) {
+            setSelectedSession(sessionActionTarget);
+            setDeleteDialogOpen(true);
+        }
+    };
+
+    // Note action menu handlers
+    const handleNoteMenuOpen = (event: React.MouseEvent<HTMLElement>, note: KuppiNoteResponse) => {
+        setNoteAnchorEl(event.currentTarget);
+        setNoteActionTarget(note);
+    };
+    const handleNoteMenuClose = () => {
+        setNoteAnchorEl(null);
+        setNoteActionTarget(null);
+    };
+
+    const handleNoteView = async () => {
+        handleNoteMenuClose();
+        if (noteActionTarget) {
+            setSelectedApp(null);
+            setSelectedSession(null);
+            setSelectedNote(null);
+            setViewMode('note');
+            setViewDialogOpen(true);
+            try {
+                const note = await dispatch((fetchNoteById as any)(noteActionTarget.id)).unwrap();
+                setSelectedNote(note as KuppiNoteResponse);
+            } catch (err: unknown) {
+                setSnackbar({ open: true, message: (err as any)?.message || 'Failed to fetch note', severity: 'error' });
+                setViewDialogOpen(false);
+                setViewMode(null);
+            }
+        }
+    };
+
+    const handleNoteDeleteConfirm = () => {
+        handleNoteMenuClose();
+        if (noteActionTarget) {
+            setSelectedNote(noteActionTarget);
+            setDeleteDialogOpen(true);
+        }
+    };
+
+    // Open session by id and show session view in dialog (used from note view)
+    const openSessionById = async (sessionId?: number | string | null, prevNoteToRestore?: KuppiNoteResponse | null) => {
+        if (sessionId === null || sessionId === undefined) {
+            setSnackbar({ open: true, message: 'Session not available for this note', severity: 'error' });
+            return;
+        }
+        const prevNote = prevNoteToRestore ?? null;
+        setSelectedNote(null);
+        setSelectedApp(null);
+        setSelectedSession(null);
+        setViewMode('session');
+        setViewDialogOpen(true);
+        try {
+            const session = await dispatch((fetchSessionById as any)(Number(sessionId))).unwrap();
+            setSelectedSession(session as KuppiSessionResponse);
+        } catch (err: unknown) {
+            setSnackbar({ open: true, message: (err as any)?.message || 'Failed to open session', severity: 'error' });
+            setViewDialogOpen(false);
+            setViewMode(null);
+            if (prevNote) {
+                setSelectedNote(prevNote);
+                setViewMode('note');
+                setViewDialogOpen(true);
+            }
+        }
+    };
+
     const handleViewApplication = () => {
         handleMenuClose();
         if (selectedApp) {
             dispatch(adminFetchApplicationById(selectedApp.id));
             setViewDialogOpen(true);
-        }
+         }
     };
 
     const handleApprove = () => {
@@ -306,7 +426,7 @@ export default function AcademicKuppiDashboard() {
         }
     }, [error, successMessage, dispatch, handleRefresh]);
 
-    const overviewStats = [
+    const overviewStatsCommon = [
         { label: 'Total Sessions', value: platformStats?.totalSessions ?? 0, icon: EventIcon, color: '#3B82F6' },
         { label: 'Total Notes', value: platformStats?.totalNotes ?? 0, icon: DescriptionIcon, color: '#10B981' },
         { label: 'Kuppi Students', value: platformStats?.totalKuppiStudents ?? applicationStats?.totalKuppiStudents ?? 0, icon: SchoolIcon, color: '#8B5CF6' },
@@ -316,284 +436,188 @@ export default function AcademicKuppiDashboard() {
     ];
 
     return (
-        <MotionBox variants={containerVariants} initial="hidden" animate="show" sx={{ maxWidth: 1600, mx: 'auto', px: { xs: 1, sm: 2, md: 0 } }}>
-            {/* Header */}
-            <MotionBox variants={itemVariants} sx={{ mb: 4 }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
-                    <Box>
-                        <Typography variant="h4" fontWeight={700} gutterBottom>Kuppi Management</Typography>
-                        <Typography variant="body2" color="text.secondary">Manage sessions, notes, and applications</Typography>
-                    </Box>
-                    <Tooltip title="Refresh">
-                        <IconButton onClick={handleRefresh} disabled={isLoading} sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1), '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) } }}>
-                            <RefreshIcon />
-                        </IconButton>
-                    </Tooltip>
-                </Stack>
-            </MotionBox>
-
-            {/* Overview Stats */}
-            <MotionBox variants={itemVariants} sx={{ mb: 4 }}>
-                <Grid container spacing={2}>
-                    {overviewStats.map((stat, index) => {
-                        const Icon = stat.icon;
-                        return (
-                            <Grid size={{ xs: 6, sm: 4, md: 2 }} key={index}>
-                                <Card elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, height: '100%' }}>
-                                    <CardContent sx={{ p: 2 }}>
-                                        <Stack direction="row" alignItems="center" spacing={1.5}>
-                                            <Box sx={{ width: 40, height: 40, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(stat.color, 0.1) }}>
-                                                <Icon sx={{ color: stat.color, fontSize: 20 }} />
-                                            </Box>
-                                            <Box>
-                                                <Typography variant="h6" fontWeight={700}>{stat.value}</Typography>
-                                                <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
-                                            </Box>
-                                        </Stack>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        );
-                    })}
-                </Grid>
-            </MotionBox>
-
-            {/* Main Tabs */}
-            <MotionCard variants={itemVariants} elevation={0} sx={{ mb: 3, borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                <CardContent sx={{ p: 2 }}>
-                    <Tabs value={mainTab} onChange={handleMainTabChange} variant="scrollable" scrollButtons="auto">
-                        <Tab label="Applications" icon={<AssignmentIcon />} iconPosition="start" />
-                        <Tab label="Sessions" icon={<EventIcon />} iconPosition="start" />
-                        <Tab label="Notes" icon={<DescriptionIcon />} iconPosition="start" />
-                    </Tabs>
-                </CardContent>
-            </MotionCard>
-
-            {/* Applications Tab */}
-            {mainTab === 0 && (
-                <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+        <KuppiCommon
+            title="Kuppi Management"
+            description="Manage sessions, notes, and applications"
+            overviewStats={overviewStatsCommon}
+            mainTab={mainTab}
+            onMainTabChange={handleMainTabChange}
+            onRefresh={handleRefresh}
+            isLoading={isLoading}
+        >
+            {/* Children (original tab contents) */}
+            {/* Applications Tab (mounted always, hidden when inactive) */}
+            <Box role="tabpanel" hidden={mainTab !== 0} sx={{ display: mainTab === 0 ? 'block' : 'none' }}>
+                <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 1, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
                     <CardContent sx={{ p: 2 }}>
-                        <Tabs
-                            value={applicationStatusFilter === '' ? 0 : applicationStatusFilter === 'PENDING' ? 1 : applicationStatusFilter === 'UNDER_REVIEW' ? 2 : 3}
-                            onChange={(_, v) => {
-                                const statuses: (ApplicationStatus | '')[] = ['', 'PENDING', 'UNDER_REVIEW', 'APPROVED'];
-                                setApplicationStatusFilter(statuses[v]);
-                                dispatch(adminFetchApplications({ page: 0, size: pageSize, status: statuses[v] || undefined }));
-                            }}
-                            sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0 } }}
-                        >
-                            <Tab label="All" />
-                            <Tab label="Pending" />
-                            <Tab label="Under Review" />
-                            <Tab label="Approved" />
-                        </Tabs>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between" sx={{ mb: 2 }}>
+                            <Tabs
+                                value={applicationStatusFilter === '' ? 0 : applicationStatusFilter === 'PENDING' ? 1 : applicationStatusFilter === 'UNDER_REVIEW' ? 2 : 3}
+                                onChange={(_, v) => {
+                                    const statuses: (ApplicationStatus | '')[] = ['', 'PENDING', 'UNDER_REVIEW', 'APPROVED'];
+                                    setApplicationStatusFilter(statuses[v]);
+                                    dispatch(adminFetchApplications({ page: 0, size: pageSize, status: statuses[v] || undefined }));
+                                }}
+                                sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0 } }}
+                            >
+                                <Tab label="All" />
+                                <Tab label="Pending" />
+                                <Tab label="Under Review" />
+                                <Tab label="Approved" />
+                            </Tabs>
+                        </Stack>
                     </CardContent>
 
-                    {isApplicationLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-                    ) : applications.length === 0 ? (
-                        <Box sx={{ textAlign: 'center', py: 8 }}>
-                            <AssignmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-                            <Typography color="text.secondary">No applications found</Typography>
-                        </Box>
-                    ) : (
-                        <>
-                            <TableContainer>
-                                <Table size={isTablet ? 'small' : 'medium'}>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                                            <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Subjects</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>GPA</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {applications.map((app) => (
-                                            <TableRow key={app.id} hover>
-                                                <TableCell>
-                                                    <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                        <Avatar sx={{ width: 36, height: 36, bgcolor: theme.palette.primary.main }}>{app.studentName?.[0]}</Avatar>
-                                                        <Box>
-                                                            <Typography variant="body2" fontWeight={600}>{app.studentName}</Typography>
-                                                            <Typography variant="caption" color="text.secondary">{app.studentEmail}</Typography>
-                                                        </Box>
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                        {app.subjectsToTeach.slice(0, 2).map((s, i) => <Chip key={i} label={s} size="small" />)}
-                                                        {app.subjectsToTeach.length > 2 && <Chip label={`+${app.subjectsToTeach.length - 2}`} size="small" />}
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Stack direction="row" alignItems="center" spacing={0.5}>
-                                                        <StarIcon sx={{ fontSize: 16, color: '#F59E0B' }} />
-                                                        <Typography variant="body2" fontWeight={600}>{app.currentGpa.toFixed(2)}</Typography>
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip icon={getApplicationStatusIcon(app.status)} label={app.statusDisplayName} size="small" sx={{ bgcolor: alpha(APPLICATION_STATUS_COLORS[app.status], 0.1), color: APPLICATION_STATUS_COLORS[app.status], '& .MuiChip-icon': { color: 'inherit' } }} />
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <IconButton size="small" onClick={(e) => handleApplicationMenuOpen(e, app)}><MoreVertIcon /></IconButton>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            <TablePagination component="div" count={totalApplications} page={page} onPageChange={(_, p) => { dispatch(setKuppiCurrentPage(p)); dispatch(adminFetchApplications({ page: p, size: pageSize, status: applicationStatusFilter || undefined })); }} rowsPerPage={pageSize} onRowsPerPageChange={(e) => { dispatch(setKuppiPageSize(parseInt(e.target.value, 10))); dispatch(setKuppiCurrentPage(0)); }} rowsPerPageOptions={[5, 10, 25]} />
-                        </>
-                    )}
+                    <ApplicationsTable
+                        applications={applications}
+                        total={totalApplications}
+                        page={page}
+                        rowsPerPage={pageSize}
+                        isLoading={isApplicationLoading}
+                        isTablet={isTablet}
+                        onOpenMenu={(e, app) => handleApplicationMenuOpen(e, app)}
+                        onChangePage={(p) => { dispatch(setKuppiCurrentPage(p)); dispatch(adminFetchApplications({ page: p, size: pageSize, status: applicationStatusFilter || undefined })); }}
+                        onChangeRowsPerPage={(size) => { dispatch(setKuppiPageSize(size)); dispatch(setKuppiCurrentPage(0)); }}
+                    />
                 </MotionCard>
-            )}
+            </Box>
 
-            {/* Sessions Tab */}
-            {mainTab === 1 && (
-                <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+            {/* Sessions Tab (mounted always, hidden when inactive) */}
+            <Box role="tabpanel" hidden={mainTab !== 1} sx={{ display: mainTab === 1 ? 'block' : 'none' }}>
+                <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 1, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+                    {/* Search Panel - Always visible */}
+                    <Box sx={{ mb: 2, p: 2, borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+                        <SessionSearchPanel onResults={(results) => setFilteredSessions(results)} />
+                    </Box>
+
                     {isLoading ? (
                         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-                    ) : sessions.length === 0 ? (
-                        <Box sx={{ textAlign: 'center', py: 8 }}>
-                            <EventIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-                            <Typography color="text.secondary">No sessions found</Typography>
-                        </Box>
                     ) : (
-                        <>
-                            <TableContainer>
-                                <Table size={isTablet ? 'small' : 'medium'}>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                                            <TableCell sx={{ fontWeight: 600 }}>Session</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Host</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>Date</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>Views</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {sessions.map((session) => (
-                                            <TableRow key={session.id} hover>
-                                                <TableCell>
-                                                    <Box>
-                                                        <Typography variant="body2" fontWeight={600}>{session.title}</Typography>
-                                                        <Chip label={session.subject} size="small" sx={{ mt: 0.5 }} />
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}><Typography variant="body2">{session.hostName}</Typography></TableCell>
-                                                <TableCell><Chip icon={getSessionStatusIcon(session.status)} label={session.status} size="small" sx={{ bgcolor: alpha(SESSION_STATUS_COLORS[session.status], 0.1), color: SESSION_STATUS_COLORS[session.status], '& .MuiChip-icon': { color: 'inherit' } }} /></TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><Typography variant="caption">{new Date(session.scheduledStartTime).toLocaleDateString()}</Typography></TableCell>
-                                                <TableCell><Typography variant="body2">{session.viewCount}</Typography></TableCell>
-                                                <TableCell align="right">
-                                                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => { setSelectedSession(session); setDeleteDialogOpen(true); }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            <TablePagination component="div" count={totalSessions} page={page} onPageChange={(_, p) => { dispatch(setKuppiCurrentPage(p)); dispatch(fetchSessions({ page: p, size: pageSize })); }} rowsPerPage={pageSize} onRowsPerPageChange={(e) => { dispatch(setKuppiPageSize(parseInt(e.target.value, 10))); dispatch(setKuppiCurrentPage(0)); }} rowsPerPageOptions={[5, 10, 25]} />
-                        </>
+                        (() => {
+                            const sessionsToShow = filteredSessions ?? sessions;
+                            if (sessionsToShow.length === 0) {
+                                return (
+                                    <Box sx={{ textAlign: 'center', py: 8 }}>
+                                        <EventIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                                        <Typography color="text.secondary">No sessions found</Typography>
+                                    </Box>
+                                );
+                            }
+                            return (
+                                <>
+                                    <TableContainer>
+                                        <Table size={isTablet ? 'small' : 'medium'}>
+                                            <TableHead>
+                                                <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                                                    <TableCell sx={{ fontWeight: 600 }}>Session</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Host</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>Date</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600 }}>Views</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {sessionsToShow.map((session) => {
+                                                    const sessionColor = SESSION_STATUS_COLORS[(session.status as SessionStatus)] ?? '#6B7280';
+                                                    return (
+                                                        <TableRow key={session.id} hover>
+                                                            <TableCell>
+                                                                <Box>
+                                                                    <Typography variant="body2" fontWeight={600}>{session.title}</Typography>
+                                                                    <Chip label={session.subject} size="small" sx={{ mt: 0.5 }} />
+                                                                </Box>
+                                                            </TableCell>
+                                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                                                                <Typography variant="body2">{session.host?.fullName ?? ''}</Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Chip
+                                                                    icon={getSessionStatusIcon(session.status)}
+                                                                    label={session.status ?? '—'}
+                                                                    size="small"
+                                                                    sx={{ bgcolor: alpha(sessionColor, 0.1), color: sessionColor, '& .MuiChip-icon': { color: 'inherit' } }}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                                                                <Typography variant="caption">{session.scheduledStartTime ? new Date(session.scheduledStartTime).toLocaleDateString() : ''}</Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2">{session.viewCount}</Typography>
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <IconButton size="small" onClick={(e) => handleSessionMenuOpen(e, session)}><MoreVertIcon fontSize="small" /></IconButton>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                    <TablePagination
+                                        component="div"
+                                        count={totalSessions}
+                                        page={page}
+                                        onPageChange={(_, p) => { dispatch(setKuppiCurrentPage(p)); dispatch(fetchSessions({ page: p, size: pageSize })); }}
+                                        rowsPerPage={pageSize}
+                                        onRowsPerPageChange={(e) => { dispatch(setKuppiPageSize(parseInt(e.target.value, 10))); dispatch(setKuppiCurrentPage(0)); }}
+                                        rowsPerPageOptions={[5, 10, 25]}
+                                    />
+                                </>
+                            );
+                        })()
                     )}
                 </MotionCard>
-            )}
+            </Box>
 
-            {/* Notes Tab */}
-            {mainTab === 2 && (
-                <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                    {isLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-                    ) : notes.length === 0 ? (
-                        <Box sx={{ textAlign: 'center', py: 8 }}>
-                            <DescriptionIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-                            <Typography color="text.secondary">No notes found</Typography>
-                        </Box>
-                    ) : (
-                        <>
-                            <TableContainer>
-                                <Table size={isTablet ? 'small' : 'medium'}>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                                            <TableCell sx={{ fontWeight: 600 }}>Note</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Uploader</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                                            <TableCell sx={{ fontWeight: 600 }}>Views</TableCell>
-                                            <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>Downloads</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {notes.map((note) => (
-                                            <TableRow key={note.id} hover>
-                                                <TableCell><Typography variant="body2" fontWeight={600}>{note.title}</Typography></TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}><Typography variant="body2">{note.uploaderName}</Typography></TableCell>
-                                                <TableCell><Chip label={note.fileType?.toUpperCase() || 'FILE'} size="small" /></TableCell>
-                                                <TableCell><Typography variant="body2">{note.viewCount}</Typography></TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><Typography variant="body2">{note.downloadCount}</Typography></TableCell>
-                                                <TableCell align="right">
-                                                    <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => { setSelectedNote(note); setDeleteDialogOpen(true); }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            <TablePagination component="div" count={totalNotes} page={page} onPageChange={(_, p) => { dispatch(setKuppiCurrentPage(p)); dispatch(fetchNotes({ page: p, size: pageSize })); }} rowsPerPage={pageSize} onRowsPerPageChange={(e) => { dispatch(setKuppiPageSize(parseInt(e.target.value, 10))); dispatch(setKuppiCurrentPage(0)); }} rowsPerPageOptions={[5, 10, 25]} />
-                        </>
-                    )}
-                </MotionCard>
-            )}
+            {/* Notes Tab (mounted always, hidden when inactive) */}
+            <Box role="tabpanel" hidden={mainTab !== 2} sx={{ display: mainTab === 2 ? 'block' : 'none' }}>
+                <NotesTable
+                    notes={notes}
+                    total={totalNotes}
+                    page={page}
+                    rowsPerPage={pageSize}
+                    isLoading={isLoading}
+                    isTablet={isTablet}
+                    onOpenMenu={handleNoteMenuOpen}
+                    onChangePage={(p) => { dispatch(setKuppiCurrentPage(p)); dispatch(fetchNotes({ page: p, size: pageSize })); }}
+                    onChangeRowsPerPage={(size) => { dispatch(setKuppiPageSize(size)); dispatch(setKuppiCurrentPage(0)); }}
+                    onOpenSessionById={openSessionById}
+                />
+            </Box>
 
-            {/* Application Action Menu */}
-            <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                <MenuItem onClick={handleViewApplication}><VisibilityIcon sx={{ mr: 1.5, fontSize: 20 }} />View Details</MenuItem>
-                {selectedApp?.canBeApproved && <MenuItem onClick={() => { handleMenuClose(); setApproveDialogOpen(true); }} sx={{ color: 'success.main' }}><ThumbUpIcon sx={{ mr: 1.5, fontSize: 20 }} />Approve</MenuItem>}
-                {selectedApp?.canBeRejected && <MenuItem onClick={() => { handleMenuClose(); setRejectDialogOpen(true); }} sx={{ color: 'error.main' }}><ThumbDownIcon sx={{ mr: 1.5, fontSize: 20 }} />Reject</MenuItem>}
-                {selectedApp?.status === 'PENDING' && <MenuItem onClick={handleMarkUnderReview} sx={{ color: 'info.main' }}><HourglassEmptyIcon sx={{ mr: 1.5, fontSize: 20 }} />Mark Under Review</MenuItem>}
-            </Menu>
+            <RowActionMenu
+                anchorEl={sessionAnchorEl}
+                open={Boolean(sessionAnchorEl)}
+                mode="session"
+                targetItem={sessionActionTarget}
+                onClose={handleSessionMenuClose}
+                onView={handleSessionView}
+                onDelete={handleSessionDeleteConfirm}
+            />
 
-            {/* View Application Dialog */}
-            <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
-                <DialogTitle>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="h6" fontWeight={600}>Application Details</Typography>
-                        <IconButton onClick={() => setViewDialogOpen(false)} size="small"><CloseIcon /></IconButton>
-                    </Stack>
-                </DialogTitle>
-                <DialogContent dividers>
-                    {isApplicationLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
-                    ) : selectedApplication ? (
-                        <Stack spacing={3}>
-                            <Stack direction="row" spacing={2} alignItems="center">
-                                <Avatar sx={{ width: 64, height: 64, bgcolor: theme.palette.primary.main }}>{selectedApplication.studentName?.[0]}</Avatar>
-                                <Box>
-                                    <Typography variant="h6" fontWeight={600}>{selectedApplication.studentName}</Typography>
-                                    <Typography variant="body2" color="text.secondary">{selectedApplication.studentEmail}</Typography>
-                                </Box>
-                            </Stack>
-                            <Divider />
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 6 }}><Typography variant="caption" color="text.secondary">GPA</Typography><Typography variant="body1" fontWeight={600}>{selectedApplication.currentGpa.toFixed(2)}</Typography></Grid>
-                                <Grid size={{ xs: 6 }}><Typography variant="caption" color="text.secondary">Semester</Typography><Typography variant="body1">{selectedApplication.currentSemester}</Typography></Grid>
-                                <Grid size={{ xs: 6 }}><Typography variant="caption" color="text.secondary">Level</Typography><Typography variant="body1">{selectedApplication.preferredExperienceLevel}</Typography></Grid>
-                                <Grid size={{ xs: 6 }}><Typography variant="caption" color="text.secondary">Status</Typography><Chip icon={getApplicationStatusIcon(selectedApplication.status)} label={selectedApplication.statusDisplayName} size="small" sx={{ bgcolor: alpha(APPLICATION_STATUS_COLORS[selectedApplication.status], 0.1), color: APPLICATION_STATUS_COLORS[selectedApplication.status], '& .MuiChip-icon': { color: 'inherit' } }} /></Grid>
-                            </Grid>
-                            <Box><Typography variant="caption" color="text.secondary">Subjects</Typography><Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5, gap: 0.5 }}>{selectedApplication.subjectsToTeach.map((s, i) => <Chip key={i} label={s} size="small" />)}</Stack></Box>
-                            <Box><Typography variant="caption" color="text.secondary">Motivation</Typography><Typography variant="body2">{selectedApplication.motivation}</Typography></Box>
-                            {selectedApplication.relevantExperience && <Box><Typography variant="caption" color="text.secondary">Experience</Typography><Typography variant="body2">{selectedApplication.relevantExperience}</Typography></Box>}
-                        </Stack>
-                    ) : null}
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
-                    {selectedApplication?.canBeApproved && <Button variant="contained" color="success" onClick={() => { setViewDialogOpen(false); setApproveDialogOpen(true); }}>Approve</Button>}
-                    {selectedApplication?.canBeRejected && <Button variant="contained" color="error" onClick={() => { setViewDialogOpen(false); setRejectDialogOpen(true); }}>Reject</Button>}
-                </DialogActions>
-            </Dialog>
+            <RowActionMenu
+                anchorEl={noteAnchorEl}
+                open={Boolean(noteAnchorEl)}
+                mode="note"
+                targetItem={noteActionTarget}
+                onClose={handleNoteMenuClose}
+                onView={handleNoteView}
+                onDelete={handleNoteDeleteConfirm}
+            />
+
+            <KuppiViewDialog
+                open={viewDialogOpen}
+                mode={viewMode}
+                application={selectedApplication}
+                session={selectedSession}
+                note={selectedNote}
+                isApplicationLoading={isApplicationLoading}
+                isSessionLoading={isSessionLoading}
+                isNoteLoading={isNoteLoading}
+                onClose={() => { setViewDialogOpen(false); setViewMode(null); }}
+                onOpenSessionById={openSessionById}
+            />
 
             {/* Approve Dialog */}
             <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -639,6 +663,6 @@ export default function AcademicKuppiDashboard() {
             <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
                 <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} variant="filled" sx={{ borderRadius: 2 }}>{snackbar.message}</Alert>
             </Snackbar>
-        </MotionBox>
+        </KuppiCommon>
     );
 }
