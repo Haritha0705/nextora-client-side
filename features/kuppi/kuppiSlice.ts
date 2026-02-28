@@ -31,7 +31,7 @@ import {
 // State Interface
 // ============================================================================
 
-interface KuppiState {
+export interface KuppiState {
     // Sessions
     sessions: KuppiSessionResponse[];
     mySessions: KuppiSessionResponse[];
@@ -117,6 +117,9 @@ interface KuppiState {
     isUpdating: boolean;
     isDeleting: boolean;
 
+    // Upload progress keyed by session id
+    uploadProgress: Record<number, number>;
+
     // Messages
     error: string | null;
     successMessage: string | null;
@@ -161,8 +164,6 @@ const initialState: KuppiState = {
     isKuppiStudentsLoading: false,
     isKuppiStudentDetailLoading: false,
 
-
-
     myAnalytics: null,
     platformStats: null,
 
@@ -176,6 +177,9 @@ const initialState: KuppiState = {
     isCreating: false,
     isUpdating: false,
     isDeleting: false,
+
+    // Initialize upload progress map
+    uploadProgress: {},
 
     error: null,
     successMessage: null,
@@ -264,7 +268,7 @@ export const fetchMyAnalytics = createAsyncThunk(
 );
 
 export const createSessionAsync = createAsyncThunk(
-    'kuppi/createSessionWithFiles',
+    'kuppi/createSession',
     async ({ data, files }: { data: CreateKuppiSessionRequest; files?: File[] }, { rejectWithValue }) => {
         try {
             const response = await kuppiServices.createSession(data, files);
@@ -278,9 +282,12 @@ export const createSessionAsync = createAsyncThunk(
 
 export const updateSessionAsync = createAsyncThunk(
     'kuppi/updateSessionWithFiles',
-    async ({ id, data, files, removeNoteIds }: { id: number; data?: Partial<UpdateKuppiSessionRequest>; files?: File[]; removeNoteIds?: number[] | string }, { rejectWithValue }) => {
+    async ({ id, data, files, removeNoteIds, onProgress }: { id: number; data?: Partial<UpdateKuppiSessionRequest>; files?: File[]; removeNoteIds?: number[] | string; onProgress?: (percent: number) => void }, { rejectWithValue, dispatch }) => {
         try {
-            const response = await kuppiServices.updateSession(id, data, files, removeNoteIds);
+            const response = await kuppiServices.updateSession(id, data, files, removeNoteIds, onProgress ? (percent: number) => {
+                dispatch(setKuppiUploadProgress({ id, percent }));
+                onProgress(percent);
+            } : undefined);
             return response;
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
@@ -786,6 +793,23 @@ const kuppiSlice = createSlice({
             state.successMessage = null;
         },
         resetKuppiState: () => initialState,
+
+        // Set upload progress for a session id (percent 0-100)
+        setUploadProgress: (state, action: PayloadAction<{ id: number; percent: number }>) => {
+            const { id, percent } = action.payload;
+            state.uploadProgress = { ...state.uploadProgress, [id]: percent };
+        },
+        // Clear upload progress for session id(s)
+        clearUploadProgress: (state, action: PayloadAction<number | number[] | undefined>) => {
+            if (!action.payload) {
+                state.uploadProgress = {};
+                return;
+            }
+            const keysToClear = Array.isArray(action.payload) ? action.payload : [action.payload];
+            const next = { ...state.uploadProgress };
+            keysToClear.forEach((k) => delete next[k]);
+            state.uploadProgress = next;
+        },
     },
     extraReducers: (builder) => {
         // Fetch Sessions
@@ -816,6 +840,15 @@ const kuppiSlice = createSlice({
         builder.addCase(fetchSessionById.fulfilled, (state, action) => {
             state.isSessionLoading = false;
             state.selectedSession = action.payload;
+            // If the API included notes inside the session payload, store them in notesBySession for easy access
+            try {
+                const sess: any = action.payload;
+                if (sess && typeof sess.id === 'number' && Array.isArray(sess.notes) && sess.notes.length > 0) {
+                    state.notesBySession = { ...state.notesBySession, [sess.id]: sess.notes };
+                }
+            } catch (e) {
+                // ignore
+            }
         });
         builder.addCase(fetchSessionById.rejected, (state, action) => {
             state.isSessionLoading = false;
@@ -958,6 +991,26 @@ const kuppiSlice = createSlice({
         builder.addCase(fetchNotes.rejected, (state, action) => {
             state.isNoteLoading = false;
             state.notes = [];
+            state.error = action.payload as string;
+        });
+
+        // Fetch Notes By Session (store notes keyed by session id)
+        builder.addCase(fetchNotesBySessionAsync.pending, (state) => {
+            // keep global flag minimal; we could add per-session loading in future
+            state.isNoteLoading = true;
+            state.error = null;
+        });
+        builder.addCase(fetchNotesBySessionAsync.fulfilled, (state, action) => {
+            state.isNoteLoading = false;
+            const sessionId = action.payload?.sessionId;
+            // action.payload.data is a KuppiNotesResponse (has .data.content)
+            const notes = action.payload?.data?.data?.content || [];
+            if (typeof sessionId === 'number') {
+                state.notesBySession = { ...state.notesBySession, [sessionId]: notes };
+            }
+        });
+        builder.addCase(fetchNotesBySessionAsync.rejected, (state, action) => {
+            state.isNoteLoading = false;
             state.error = action.payload as string;
         });
 
@@ -1256,6 +1309,7 @@ export const selectKuppiIsApplicationLoading = (state: { kuppi: KuppiState }) =>
 export const selectKuppiIsCreating = (state: { kuppi: KuppiState }) => state.kuppi.isCreating;
 export const selectKuppiIsUpdating = (state: { kuppi: KuppiState }) => state.kuppi.isUpdating;
 export const selectKuppiIsDeleting = (state: { kuppi: KuppiState }) => state.kuppi.isDeleting;
+export const selectKuppiUploadProgress = (state: { kuppi: KuppiState }) => state.kuppi.uploadProgress;
 
 export const selectKuppiError = (state: { kuppi: KuppiState }) => state.kuppi.error;
 export const selectKuppiSuccessMessage = (state: { kuppi: KuppiState }) => state.kuppi.successMessage;
@@ -1276,11 +1330,13 @@ export const {
     clearSelectedSession: clearKuppiSelectedSession,
     clearSelectedNote: clearKuppiSelectedNote,
     clearSelectedApplication: clearKuppiSelectedApplication,
-    clearSelectedKuppiStudent,
+    clearSelectedKuppiStudent: clearKuppiSelectedKuppiStudent,
 
     clearError: clearKuppiError,
     clearSuccessMessage: clearKuppiSuccessMessage,
     resetKuppiState,
+    setUploadProgress: setKuppiUploadProgress,
+    clearUploadProgress: clearKuppiUploadProgress,
 } = kuppiSlice.actions;
 
 export default kuppiSlice.reducer;

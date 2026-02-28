@@ -27,9 +27,12 @@ export const StatsGrid: React.FC<StatsGridProps> = ({ sessions }) => {
     // Calculate stats from sessions
     const stats = {
         activeSessions: sessions.filter((s) => s.status === 'upcoming').length,
-        totalHosts: new Set(sessions.map((s) => s.host.id)).size,
+        totalHosts: new Set(sessions.map((s) => s.host?.id).filter(Boolean)).size,
         thisWeek: sessions.length,
-        avgRating: (sessions.reduce((acc, s) => acc + s.host.rating, 0) / sessions.length).toFixed(1),
+        avgRating: (() => {
+            const ratingSum = sessions.reduce((acc, s) => acc + (s.host?.rating ?? 0), 0);
+            return sessions.length > 0 ? (ratingSum / sessions.length).toFixed(1) : '0.0';
+        })(),
     };
 
     return (
@@ -92,4 +95,3 @@ export const StatsGrid: React.FC<StatsGridProps> = ({ sessions }) => {
         </Grid>
     );
 };
-

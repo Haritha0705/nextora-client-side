@@ -12,15 +12,12 @@ import {
     Stack,
     Grid,
     Chip,
-    Divider,
     alpha,
     useTheme,
     Paper,
     Snackbar,
     Alert,
     Skeleton,
-    Tooltip,
-    LinearProgress,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -39,10 +36,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import BadgeIcon from '@mui/icons-material/Badge';
-import VerifiedIcon from '@mui/icons-material/Verified';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-import GroupIcon from '@mui/icons-material/Group';
-import TimerIcon from '@mui/icons-material/Timer';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 import { useAppDispatch, useAppSelector } from '@/store';
@@ -52,7 +46,7 @@ import {
     selectKuppiStudentDetailLoading,
     selectKuppiError,
     clearKuppiError,
-    clearSelectedKuppiStudent,
+    clearKuppiSelectedKuppiStudent,
     SessionStatus,
 } from '@/features/kuppi';
 
@@ -96,7 +90,7 @@ export default function TutorDetailPage() {
 
     useEffect(() => {
         if (studentId) dispatch(fetchKuppiStudentById(studentId));
-        return () => { dispatch(clearSelectedKuppiStudent()); };
+        return () => { dispatch(clearKuppiSelectedKuppiStudent()); };
     }, [dispatch, studentId]);
 
     useEffect(() => {
@@ -375,9 +369,11 @@ export default function TutorDetailPage() {
                                             <Box sx={{ p: 2 }}>
                                                 <Stack direction="row" spacing={0.75} sx={{ mb: 1 }} alignItems="center">
                                                     <Chip
-                                                        icon={sc.pulse
-                                                            ? <FiberManualRecordIcon sx={{ fontSize: 8, color: `${sc.color} !important`, animation: 'pulse 1.5s infinite', '@keyframes pulse': { '0%,100%': { opacity: 1 }, '50%': { opacity: 0.3 } } }} />
-                                                            : sc.icon}
+                                                        icon={sc.pulse ? (
+                                                            <FiberManualRecordIcon sx={{ fontSize: 8, color: sc.color, animation: 'pulse 1.5s infinite' }} />
+                                                        ) : (
+                                                            sc.icon
+                                                        )}
                                                         label={session.status.replace('_', ' ')}
                                                         size="small"
                                                         sx={{ bgcolor: alpha(sc.color, 0.1), color: sc.color, fontWeight: 600, fontSize: '0.65rem', '& .MuiChip-icon': { color: 'inherit' } }}

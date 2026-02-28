@@ -6,37 +6,22 @@ import {
     Typography,
     Card,
     CardContent,
-    Grid,
     Stack,
     Button,
     TextField,
-    IconButton,
-    Avatar,
-    Chip,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TablePagination,
-    Menu,
-    MenuItem,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     InputAdornment,
     Alert,
     Snackbar,
     CircularProgress,
-    Tooltip,
     alpha,
     useTheme,
-    Divider,
     useMediaQuery,
     Tabs,
     Tab,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Chip, IconButton, TablePagination,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import SearchIcon from '@mui/icons-material/Search';
@@ -56,6 +41,7 @@ import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import SchoolIcon from '@mui/icons-material/School';
 import StarIcon from '@mui/icons-material/Star';
 import WarningIcon from '@mui/icons-material/Warning';
+import VideoCallIcon from '@mui/icons-material/VideoCall';
 
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
@@ -64,9 +50,13 @@ import {
     adminFetchApplicationStats,
     adminApproveApplicationAsync,
     adminRejectApplicationAsync,
+    fetchSessions,
+    fetchNotes,
+    fetchSessionById,
+    fetchNoteById,
+    fetchKuppiStudents,
     setKuppiCurrentPage,
     setKuppiPageSize,
-    clearKuppiSelectedApplication,
     clearKuppiError,
     clearKuppiSuccessMessage,
     selectKuppiAllApplications,
@@ -76,25 +66,39 @@ import {
     selectKuppiCurrentPage,
     selectKuppiPageSize,
     selectKuppiIsApplicationLoading,
+    selectKuppiIsSessionLoading,
+    selectKuppiIsNoteLoading,
     selectKuppiIsLoading,
+    selectKuppiSessions,
+    selectKuppiNotes,
+    selectKuppiTotalSessions,
+    selectKuppiTotalNotes,
+    selectKuppiStudents,
+    selectTotalKuppiStudents,
+    selectKuppiStudentsLoading,
     selectKuppiError,
     selectKuppiSuccessMessage,
     selectKuppiIsCreating,
     selectKuppiIsUpdating,
-    selectKuppiIsDeleting,
     KuppiApplicationResponse,
-    ApplicationStatus,
-    ReviewKuppiApplicationRequest,
+    ApplicationStatus, SessionStatus,
+    // additional imports for Hosts UI
+    fetchTopRatedKuppiStudents,
+    searchKuppiStudentsByNameAsync,
+    searchKuppiStudentsBySubjectAsync,
+    fetchKuppiStudentsByFaculty,
+    fetchKuppiStudentById,
+    selectSelectedKuppiStudent,
+    selectKuppiStudentDetailLoading,
+    KuppiStudentResponse,
+    Faculty,
 } from '@/features/kuppi';
 import * as kuppiServices from '@/features/kuppi/services';
+import { ApplicationsTable, RowActionMenu, KuppiViewDialog, KuppiCommon, SessionsTable, NotesTable, SessionSearchPanel } from '@/components/kuppi';
+import EventIcon from "@mui/icons-material/Event";
 
 const MotionBox = motion.create(Box);
 const MotionCard = motion.create(Card);
-
-const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
-};
 
 const itemVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -129,6 +133,25 @@ const EXPERIENCE_COLORS: Record<string, string> = {
     ADVANCED: '#8B5CF6',
 };
 
+// Session status colors (shared)
+const SESSION_STATUS_COLORS: Record<SessionStatus, string> = {
+    SCHEDULED: '#3B82F6',
+    IN_PROGRESS: '#10B981',
+    COMPLETED: '#6B7280',
+    CANCELLED: '#EF4444',
+};
+
+// Get icon for session status (kept local to this file)
+const getSessionStatusIcon = (status: SessionStatus) => {
+    switch (status) {
+        case 'SCHEDULED': return <EventIcon fontSize="small" />;
+        case 'IN_PROGRESS': return <VideoCallIcon fontSize="small" />;
+        case 'COMPLETED': return <CheckCircleIcon fontSize="small" />;
+        case 'CANCELLED': return <CancelIcon fontSize="small" />;
+        default: return undefined;
+    }
+};
+
 export default function SuperAdminKuppiPage() {
     const theme = useTheme();
     const dispatch = useAppDispatch();
@@ -144,18 +167,28 @@ export default function SuperAdminKuppiPage() {
     const pageSize = useAppSelector(selectKuppiPageSize);
     const isLoading = useAppSelector(selectKuppiIsLoading);
     const isApplicationLoading = useAppSelector(selectKuppiIsApplicationLoading);
+    const isSessionLoading = useAppSelector((state) => (state as any).kuppi?.isSessionLoading ?? false);
+    const isNoteLoading = useAppSelector((state) => (state as any).kuppi?.isNoteLoading ?? false);
     const isApproving = useAppSelector(selectKuppiIsCreating);
     const isRejecting = useAppSelector(selectKuppiIsUpdating);
-    const isDeleting = useAppSelector(selectKuppiIsDeleting);
     const error = useAppSelector(selectKuppiError);
     const successMessage = useAppSelector(selectKuppiSuccessMessage);
+    // Kuppi students (Hosts) selectors - moved here to ensure hooks are called unconditionally
+    const students = useAppSelector(selectKuppiStudents);
+    const totalStudents = useAppSelector(selectTotalKuppiStudents);
+    const studentsLoading = useAppSelector(selectKuppiStudentsLoading);
+    const selectedKuppiStudent = useAppSelector(selectSelectedKuppiStudent);
+    const selectedKuppiStudentLoading = useAppSelector(selectKuppiStudentDetailLoading);
 
     // Local state
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<ApplicationStatus | ''>('');
-    const [activeTab, setActiveTab] = useState(0);
+    // mainTab: 0=Applications,1=Sessions,2=Notes,3=Hosts
+    const [mainTab, setMainTab] = useState(0);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedApp, setSelectedApp] = useState<KuppiApplicationResponse | null>(null);
+    const [selectedSession, setSelectedSession] = useState<any | null>(null);
+    const [selectedNote, setSelectedNote] = useState<any | null>(null);
     const [viewDialogOpen, setViewDialogOpen] = useState(false);
     const [approveDialogOpen, setApproveDialogOpen] = useState(false);
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -167,20 +200,61 @@ export default function SuperAdminKuppiPage() {
     const [confirmText, setConfirmText] = useState('');
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
     const [actionLoading, setActionLoading] = useState(false);
+    const [viewMode, setViewMode] = useState<'application' | 'session' | 'note' | null>(null);
+
+    // Hosts-specific UI state
+    const [hostSearchQuery, setHostSearchQuery] = useState('');
+    const [hostSearchType, setHostSearchType] = useState<'name' | 'subject'>('name');
+    const [selectedFaculty, setSelectedFaculty] = useState<Faculty | 'ALL'>('ALL');
+    const [hostActiveTab, setHostActiveTab] = useState(0); // 0=All,1=Top Rated
+
+    const PAGE_SIZE = pageSize || 10;
 
     // Fetch on mount
     useEffect(() => {
         dispatch(adminFetchApplications({ page, size: pageSize }));
         dispatch(adminFetchApplicationStats());
+        // fetch sessions and notes for super-admin view
+        dispatch(fetchSessions({ page: 0, size: pageSize }));
+        dispatch(fetchNotes({ page: 0, size: pageSize }));
     }, [dispatch, page, pageSize]);
+
+    // sessions/notes state
+    const sessions = useAppSelector(selectKuppiSessions);
+    const notes = useAppSelector(selectKuppiNotes);
+    const totalSessions = useAppSelector(selectKuppiTotalSessions);
+    const totalNotes = useAppSelector(selectKuppiTotalNotes);
+
+    // session & note anchors
+    const [sessionAnchorEl, setSessionAnchorEl] = useState<null | HTMLElement>(null);
+    const [sessionActionTarget, setSessionActionTarget] = useState<any | null>(null);
+    const [noteAnchorEl, setNoteAnchorEl] = useState<null | HTMLElement>(null);
+    const [noteActionTarget, setNoteActionTarget] = useState<any | null>(null);
+    const [filteredSessions, setFilteredSessions] = useState<any[] | null>(null);
+    const [filteredNotes, setFilteredNotes] = useState<any[] | null>(null);
 
     // Handle tab change
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-        setActiveTab(newValue);
-        const statuses: (ApplicationStatus | '')[] = ['', 'PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
-        const status = statuses[newValue];
-        setStatusFilter(status);
-        dispatch(adminFetchApplications({ page: 0, size: pageSize, status: status || undefined }));
+        // when switching top-level tabs, keep applications status tabs in the Applications panel
+        setMainTab(newValue);
+        if (newValue === 0) {
+            const statuses: (ApplicationStatus | '')[] = ['', 'PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'];
+            const status = statuses[0];
+            setStatusFilter(status);
+            dispatch(adminFetchApplications({ page: 0, size: pageSize, status: status || undefined }));
+        } else if (newValue === 1) {
+            dispatch(fetchSessions({ page: 0, size: pageSize }));
+            setFilteredSessions(null);
+        } else if (newValue === 2) {
+            dispatch(fetchNotes({ page: 0, size: pageSize }));
+        } else if (newValue === 3) {
+            // Hosts tab
+            // reset host-specific controls
+            setHostSearchQuery('');
+            setSelectedFaculty('ALL');
+            setHostActiveTab(0);
+            dispatch(fetchKuppiStudents({ page: 0, size: pageSize }));
+        }
         dispatch(setKuppiCurrentPage(0));
     };
 
@@ -188,16 +262,115 @@ export default function SuperAdminKuppiPage() {
     const handleRefresh = useCallback(() => {
         dispatch(adminFetchApplications({ page, size: pageSize, status: statusFilter || undefined }));
         dispatch(adminFetchApplicationStats());
-    }, [dispatch, page, pageSize, statusFilter]);
+        if (mainTab === 3) {
+            // refresh hosts
+            dispatch(fetchKuppiStudents({ page: 0, size: PAGE_SIZE }));
+        }
+    }, [dispatch, page, pageSize, statusFilter, mainTab, PAGE_SIZE]);
 
-    // Handle menu
+    // Hosts search handler
+    const handleHostSearch = useCallback((pageIndex = 0) => {
+        if (hostSearchQuery.trim()) {
+            if (hostSearchType === 'name') {
+                dispatch(searchKuppiStudentsByNameAsync({ name: hostSearchQuery, page: pageIndex, size: PAGE_SIZE }));
+            } else {
+                dispatch(searchKuppiStudentsBySubjectAsync({ subject: hostSearchQuery, page: pageIndex, size: PAGE_SIZE }));
+            }
+            return;
+        }
+        if (selectedFaculty !== 'ALL') {
+            dispatch(fetchKuppiStudentsByFaculty({ faculty: selectedFaculty as Faculty, params: { page: pageIndex, size: PAGE_SIZE } }));
+            return;
+        }
+        if (hostActiveTab === 1) {
+            dispatch(fetchTopRatedKuppiStudents({ page: pageIndex, size: PAGE_SIZE }));
+            return;
+        }
+        dispatch(fetchKuppiStudents({ page: pageIndex, size: PAGE_SIZE }));
+    }, [dispatch, hostSearchQuery, hostSearchType, selectedFaculty, hostActiveTab, PAGE_SIZE]);
+
+    // Open host detail (fetch by id)
+    const [hostDetailOpen, setHostDetailOpen] = useState(false);
+    const openHostDetail = async (studentId: number) => {
+        try {
+            setHostDetailOpen(true);
+            await dispatch(fetchKuppiStudentById(studentId)).unwrap();
+        } catch (err) {
+            setHostDetailOpen(false);
+            setSnackbar({ open: true, message: 'Failed to load host details', severity: 'error' });
+        }
+    };
+
+    // Handle application menu
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, app: KuppiApplicationResponse) => {
         setAnchorEl(event.currentTarget);
         setSelectedApp(app);
     };
+    const handleMenuClose = () => setAnchorEl(null);
 
-    const handleMenuClose = () => {
-        setAnchorEl(null);
+    // Session menu handlers
+    const handleSessionMenuOpen = (event: React.MouseEvent<HTMLElement>, session: any) => { setSessionAnchorEl(event.currentTarget); setSessionActionTarget(session); };
+    const handleSessionMenuClose = () => { setSessionAnchorEl(null); setSessionActionTarget(null); };
+    const handleSessionView = async () => {
+        handleSessionMenuClose();
+        if (sessionActionTarget) {
+            setSelectedApp(null);
+            setSelectedNote(null);
+            setSelectedSession(null);
+            setViewDialogOpen(true);
+            try {
+                const s = await dispatch(fetchSessionById(sessionActionTarget.id)).unwrap();
+                setSelectedSession(s);
+            } catch (err) {
+                setViewDialogOpen(false);
+            }
+        }
+    };
+    const handleSessionDeleteConfirm = () => { handleSessionMenuClose(); if (sessionActionTarget) { setSelectedSession(sessionActionTarget); /* keep modal flows*/ } };
+
+    // Note menu handlers
+    const handleNoteMenuOpen = (event: React.MouseEvent<HTMLElement>, note: any) => { setNoteAnchorEl(event.currentTarget); setNoteActionTarget(note); };
+    const handleNoteMenuClose = () => { setNoteAnchorEl(null); setNoteActionTarget(null); };
+    const handleNoteView = async () => {
+        handleNoteMenuClose();
+        if (noteActionTarget) {
+            setSelectedApp(null);
+            setSelectedSession(null);
+            setSelectedNote(null);
+            setViewDialogOpen(true);
+            try {
+                const n = await dispatch(fetchNoteById(noteActionTarget.id)).unwrap();
+                setSelectedNote(n);
+            } catch (err) {
+                setViewDialogOpen(false);
+            }
+        }
+    };
+    const handleNoteDeleteConfirm = () => { handleNoteMenuClose(); if (noteActionTarget) { setSelectedNote(noteActionTarget); } };
+
+    // Open session by id and show session view in dialog (used from note view)
+    const openSessionById = async (sessionId?: number | string | null, prevNoteToRestore?: any | null) => {
+        if (sessionId === null || sessionId === undefined) {
+            setSnackbar({ open: true, message: 'Session not available for this note', severity: 'error' });
+            return;
+        }
+        const prevNote = prevNoteToRestore ?? null;
+        setSelectedNote(null);
+        setSelectedApp(null);
+        setSelectedSession(null);
+        setViewMode('session');
+        setViewDialogOpen(true);
+        try {
+            const session = await dispatch((fetchSessionById as any)(Number(sessionId))).unwrap();
+            setSelectedSession(session as any);
+        } catch (err: unknown) {
+            setSnackbar({ open: true, message: (err as any)?.message || 'Failed to open session', severity: 'error' });
+            setViewDialogOpen(false);
+            setViewMode(null);
+            if (prevNote) {
+                setSelectedNote(prevNote);
+            }
+        }
     };
 
     // Handle view
@@ -208,6 +381,14 @@ export default function SuperAdminKuppiPage() {
             setViewDialogOpen(true);
         }
     };
+
+    // Trigger host searches when filters change (simple effect)
+    useEffect(() => {
+        if (mainTab === 3) {
+            // run search with page 0 when host filters change
+            handleHostSearch(0);
+        }
+    }, [hostSearchQuery, hostSearchType, selectedFaculty, hostActiveTab, mainTab, handleHostSearch]);
 
     // Handle approve
     const handleOpenApproveDialog = () => {
@@ -311,331 +492,347 @@ export default function SuperAdminKuppiPage() {
         }
     }, [error, successMessage, dispatch, handleRefresh]);
 
-    // Stats cards
-    const statsCards = [
-        { label: 'Total', value: stats?.totalApplications ?? 0, icon: AssignmentIcon, color: theme.palette.primary.main },
-        { label: 'Pending', value: stats?.pendingApplications ?? 0, icon: PendingIcon, color: '#F59E0B' },
-        { label: 'Under Review', value: stats?.underReviewApplications ?? 0, icon: HourglassEmptyIcon, color: '#3B82F6' },
-        { label: 'Approved', value: stats?.approvedApplications ?? 0, icon: CheckCircleIcon, color: '#10B981' },
-        { label: 'Rejected', value: stats?.rejectedApplications ?? 0, icon: CancelIcon, color: '#EF4444' },
-        { label: 'Kuppi Students', value: stats?.totalKuppiStudents ?? 0, icon: SchoolIcon, color: '#8B5CF6' },
-    ];
+    const statsOverview = stats ? [
+        { label: 'Total', value: stats.totalApplications ?? 0, icon: AssignmentIcon, color: theme.palette.primary.main },
+        { label: 'Pending', value: stats.pendingApplications ?? 0, icon: PendingIcon, color: '#F59E0B' },
+        { label: 'Under Review', value: stats.underReviewApplications ?? 0, icon: HourglassEmptyIcon, color: '#3B82F6' },
+        { label: 'Approved', value: stats.approvedApplications ?? 0, icon: CheckCircleIcon, color: '#10B981' },
+        { label: 'Rejected', value: stats.rejectedApplications ?? 0, icon: CancelIcon, color: '#EF4444' },
+        { label: 'Kuppi Students', value: stats.totalKuppiStudents ?? 0, icon: SchoolIcon, color: '#8B5CF6' },
+    ] : [];
 
     return (
-        <MotionBox variants={containerVariants} initial="hidden" animate="show" sx={{ maxWidth: 1600, mx: 'auto', px: { xs: 1, sm: 2, md: 0 } }}>
-            {/* Header */}
-            <MotionBox variants={itemVariants} sx={{ mb: { xs: 2, sm: 3, md: 4 } }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={2}>
-                    <Box>
-                        <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2.125rem' } }} fontWeight={700} gutterBottom>
-                            Kuppi Management
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-                            Super Admin: Full control over Kuppi applications and roles
-                        </Typography>
+        <KuppiCommon
+            title="Kuppi Management"
+            description="Manage applications"
+            overviewStats={statsOverview}
+            mainTab={mainTab}
+            onMainTabChange={handleTabChange}
+            extraTabs={["Hosts"]}
+            onRefresh={handleRefresh}
+            isLoading={isLoading}
+        >
+            {/* Children (original tab contents) */}
+            {/* Applications Tab (mounted always, hidden when inactive) */}
+            <Box role="tabpanel" hidden={mainTab !== 0} sx={{ display: mainTab === 0 ? 'block' : 'none' }}>
+                <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 1, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+                    <CardContent sx={{ p: 2 }}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between" sx={{ mb: 2 }}>
+                            <Tabs
+                                value={statusFilter === '' ? 0 : statusFilter === 'PENDING' ? 1 : statusFilter === 'UNDER_REVIEW' ? 2 : 3}
+                                onChange={(_, v) => {
+                                    const statuses: (ApplicationStatus | '')[] = ['', 'PENDING', 'UNDER_REVIEW', 'APPROVED'];
+                                    setStatusFilter(statuses[v]);
+                                    dispatch(adminFetchApplications({ page: 0, size: pageSize, status: statuses[v] || undefined }));
+                                }}
+                                sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0 } }}
+                            >
+                                <Tab label="All" />
+                                <Tab label="Pending" />
+                                <Tab label="Under Review" />
+                                <Tab label="Approved" />
+                            </Tabs>
+                        </Stack>
+                    </CardContent>
+
+                    <ApplicationsTable
+                        applications={applications}
+                        total={totalApplications}
+                        page={page}
+                        rowsPerPage={pageSize}
+                        isLoading={isApplicationLoading}
+                        isTablet={isTablet}
+                        onOpenMenu={(e, app) => handleMenuOpen(e, app)}
+                        onChangePage={(p) => { dispatch(setKuppiCurrentPage(p)); dispatch(adminFetchApplications({ page: p, size: pageSize, status: statusFilter || undefined })); }}
+                        onChangeRowsPerPage={(size) => { dispatch(setKuppiPageSize(size)); dispatch(setKuppiCurrentPage(0)); }}
+                    />
+                </MotionCard>
+            </Box>
+
+            {/* Sessions Tab (mounted always, hidden when inactive) */}
+            <Box role="tabpanel" hidden={mainTab !== 1} sx={{ display: mainTab === 1 ? 'block' : 'none' }}>
+                <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 1, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+                    {/* Search Panel - Always visible */}
+                    <Box sx={{ mb: 2, p: 2, borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+                        <SessionSearchPanel onResults={(results) => setFilteredSessions(results)} />
                     </Box>
-                    <Tooltip title="Refresh">
-                        <IconButton onClick={handleRefresh} disabled={isLoading} sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1), '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) } }}>
-                            <RefreshIcon />
-                        </IconButton>
-                    </Tooltip>
-                </Stack>
-            </MotionBox>
 
-            {/* Stats Cards */}
-            <MotionBox variants={itemVariants} sx={{ mb: { xs: 2, sm: 3 } }}>
-                <Grid container spacing={{ xs: 1, sm: 1.5 }}>
-                    {statsCards.map((stat, index) => {
-                        const Icon = stat.icon;
-                        return (
-                            <Grid size={{ xs: 6, sm: 4, md: 2 }} key={index}>
-                                <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}`, height: '100%' }}>
-                                    <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-                                        <Stack direction="row" alignItems="center" spacing={1.5}>
-                                            <Box sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 }, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(stat.color, 0.1), flexShrink: 0 }}>
-                                                <Icon sx={{ color: stat.color, fontSize: { xs: 18, sm: 20 } }} />
-                                            </Box>
-                                            <Box sx={{ minWidth: 0 }}>
-                                                <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.1rem' } }} fontWeight={700}>{stat.value}</Typography>
-                                                <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: { xs: '0.6rem', sm: '0.65rem' }, display: 'block' }}>{stat.label}</Typography>
-                                            </Box>
-                                        </Stack>
-                                    </CardContent>
-                                </MotionCard>
-                            </Grid>
-                        );
-                    })}
-                </Grid>
-            </MotionBox>
+                    {isLoading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+                    ) : (
+                        (() => {
+                            const sessionsToShow = filteredSessions ?? sessions;
+                            if (sessionsToShow.length === 0) {
+                                return (
+                                    <Box sx={{ textAlign: 'center', py: 8 }}>
+                                        <EventIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                                        <Typography color="text.secondary">No sessions found</Typography>
+                                    </Box>
+                                );
+                            }
+                            return (
+                                <>
+                                    <TableContainer>
+                                        <Table size={isTablet ? 'small' : 'medium'}>
+                                            <TableHead>
+                                                <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                                                    <TableCell sx={{ fontWeight: 600 }}>Session</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Host</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>Date</TableCell>
+                                                    <TableCell sx={{ fontWeight: 600 }}>Views</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {sessionsToShow.map((session) => {
+                                                    const sessionColor = SESSION_STATUS_COLORS[(session.status as SessionStatus)] ?? '#6B7280';
+                                                    return (
+                                                        <TableRow key={session.id} hover>
+                                                            <TableCell>
+                                                                <Box>
+                                                                    <Typography variant="body2" fontWeight={600}>{session.title}</Typography>
+                                                                    <Chip label={session.subject} size="small" sx={{ mt: 0.5 }} />
+                                                                </Box>
+                                                            </TableCell>
+                                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                                                                <Typography variant="body2">{session.host?.fullName ?? ''}</Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Chip
+                                                                    icon={getSessionStatusIcon(session.status)}
+                                                                    label={session.status ?? '—'}
+                                                                    size="small"
+                                                                    sx={{ bgcolor: alpha(sessionColor, 0.1), color: sessionColor, '& .MuiChip-icon': { color: 'inherit' } }}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                                                                <Typography variant="caption">{session.scheduledStartTime ? new Date(session.scheduledStartTime).toLocaleDateString() : ''}</Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2">{session.viewCount}</Typography>
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <IconButton size="small" onClick={(e) => handleSessionMenuOpen(e, session)}><MoreVertIcon fontSize="small" /></IconButton>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                    <TablePagination
+                                        component="div"
+                                        count={totalSessions}
+                                        page={page}
+                                        onPageChange={(_, p) => { dispatch(setKuppiCurrentPage(p)); dispatch(fetchSessions({ page: p, size: pageSize })); }}
+                                        rowsPerPage={pageSize}
+                                        onRowsPerPageChange={(e) => { dispatch(setKuppiPageSize(parseInt(e.target.value, 10))); dispatch(setKuppiCurrentPage(0)); }}
+                                        rowsPerPageOptions={[5, 10, 25]}
+                                    />
+                                </>
+                            );
+                        })()
+                    )}
+                </MotionCard>
+            </Box>
 
-            {/* Tabs & Filters */}
-            <MotionCard variants={itemVariants} elevation={0} sx={{ mb: { xs: 2, sm: 3 }, borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
-                    <Stack spacing={2}>
-                        <Tabs value={activeTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 40, '& .MuiTab-root': { minHeight: 40, textTransform: 'none' } }}>
-                            <Tab label="All" />
-                            <Tab label="Pending" />
-                            <Tab label="Under Review" />
-                            <Tab label="Approved" />
-                            <Tab label="Rejected" />
-                        </Tabs>
-                        <TextField
-                            placeholder="Search by name or email..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            size="small"
-                            fullWidth
-                            sx={{ maxWidth: { sm: 300 }, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                            slotProps={{
-                                input: {
-                                    startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} /></InputAdornment>
-                                }
-                            }}
-                        />
-                    </Stack>
-                </CardContent>
-            </MotionCard>
+            {/* Notes Tab (mounted always, hidden when inactive) */}
+            <Box role="tabpanel" hidden={mainTab !== 2} sx={{ display: mainTab === 2 ? 'block' : 'none' }}>
+                <NotesTable
+                    notes={notes}
+                    total={totalNotes}
+                    page={page}
+                    rowsPerPage={pageSize}
+                    isLoading={isLoading}
+                    isTablet={isTablet}
+                    onOpenMenu={handleNoteMenuOpen}
+                    onChangePage={(p) => { dispatch(setKuppiCurrentPage(p)); dispatch(fetchNotes({ page: p, size: pageSize })); }}
+                    onChangeRowsPerPage={(size) => { dispatch(setKuppiPageSize(size)); dispatch(setKuppiCurrentPage(0)); }}
+                    onOpenSessionById={openSessionById}
+                />
+            </Box>
 
-            {/* Applications Table */}
-            <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
-                {isLoading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-                        <CircularProgress />
-                    </Box>
-                ) : applications.length === 0 ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-                        <AssignmentIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-                        <Typography color="text.secondary">No applications found</Typography>
-                    </Box>
-                ) : (
-                    <>
-                        <TableContainer>
-                            <Table size={isTablet ? 'small' : 'medium'}>
-                                <TableHead>
-                                    <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                                        <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Subjects</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Level</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>GPA</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, display: { xs: 'none', lg: 'table-cell' } }}>Submitted</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {applications.map((app) => (
-                                        <TableRow key={app.id} hover>
-                                            <TableCell>
-                                                <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                    <Avatar src={app.studentProfilePictureUrl || undefined} sx={{ bgcolor: theme.palette.primary.main, width: 40, height: 40 }}>
-                                                        {app.studentName?.[0] || 'S'}
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography variant="body2" fontWeight={600}>{app.studentName}</Typography>
-                                                        <Typography variant="caption" color="text.secondary">{app.studentEmail}</Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                    {app.subjectsToTeach.slice(0, 2).map((subject, idx) => (
-                                                        <Chip key={idx} label={subject} size="small" sx={{ fontSize: '0.7rem' }} />
-                                                    ))}
-                                                    {app.subjectsToTeach.length > 2 && (
-                                                        <Chip label={`+${app.subjectsToTeach.length - 2}`} size="small" sx={{ fontSize: '0.7rem' }} />
-                                                    )}
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    label={app.preferredExperienceLevel}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: alpha(EXPERIENCE_COLORS[app.preferredExperienceLevel] || theme.palette.grey[500], 0.1),
-                                                        color: EXPERIENCE_COLORS[app.preferredExperienceLevel] || theme.palette.grey[500],
-                                                        fontWeight: 500,
-                                                        fontSize: '0.7rem'
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Stack direction="row" alignItems="center" spacing={0.5}>
-                                                    <StarIcon sx={{ fontSize: 16, color: '#F59E0B' }} />
-                                                    <Typography variant="body2" fontWeight={600}>{app.currentGpa.toFixed(2)}</Typography>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    icon={getStatusIcon(app.status)}
-                                                    label={app.statusDisplayName}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: alpha(STATUS_COLORS[app.status], 0.1),
-                                                        color: STATUS_COLORS[app.status],
-                                                        fontWeight: 500,
-                                                        fontSize: '0.7rem',
-                                                        '& .MuiChip-icon': { color: 'inherit' }
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {new Date(app.submittedAt).toLocaleDateString()}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <IconButton size="small" onClick={(e) => handleMenuOpen(e, app)}>
-                                                    <MoreVertIcon />
-                                                </IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                        <TablePagination
-                            component="div"
-                            count={totalApplications}
-                            page={page}
-                            onPageChange={(_, p) => dispatch(setKuppiCurrentPage(p))}
-                            rowsPerPage={pageSize}
-                            onRowsPerPageChange={(e) => {
-                                dispatch(setKuppiPageSize(parseInt(e.target.value, 10)));
-                                dispatch(setKuppiCurrentPage(0));
-                            }}
-                            rowsPerPageOptions={isMobile ? [5, 10] : [5, 10, 25]}
-                        />
-                    </>
-                )}
-            </MotionCard>
+            {/* Hosts Tab (Kuppi Students) */}
+            <Box role="tabpanel" hidden={mainTab !== 3} sx={{ display: mainTab === 3 ? 'block' : 'none' }}>
+                <MotionCard variants={itemVariants} elevation={0} sx={{ borderRadius: 1, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+                    <CardContent sx={{ p: 2 }}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between" sx={{ mb: 2 }}>
+                            <Typography variant="h6">Hosts</Typography>
+                        </Stack>
+                    </CardContent>
 
-            {/* Action Menu - Super Admin has additional options */}
-            <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                <MenuItem onClick={handleView}>
-                    <VisibilityIcon sx={{ mr: 1.5, fontSize: 20 }} />View Details
-                </MenuItem>
-                {selectedApp?.canBeApproved && (
-                    <MenuItem onClick={handleOpenApproveDialog} sx={{ color: 'success.main' }}>
-                        <ThumbUpIcon sx={{ mr: 1.5, fontSize: 20 }} />Approve
-                    </MenuItem>
-                )}
-                {selectedApp?.canBeRejected && (
-                    <MenuItem onClick={handleOpenRejectDialog} sx={{ color: 'error.main' }}>
-                        <ThumbDownIcon sx={{ mr: 1.5, fontSize: 20 }} />Reject
-                    </MenuItem>
-                )}
-                {selectedApp?.status === 'PENDING' && (
-                    <MenuItem onClick={handleMarkUnderReview} sx={{ color: 'info.main' }}>
-                        <HourglassEmptyIcon sx={{ mr: 1.5, fontSize: 20 }} />Mark Under Review
-                    </MenuItem>
-                )}
-                <Divider />
-                {/* Super Admin Only Actions */}
-                {selectedApp?.status === 'APPROVED' && (
-                    <MenuItem onClick={handleOpenRevokeRoleDialog} sx={{ color: 'warning.main' }}>
-                        <PersonOffIcon sx={{ mr: 1.5, fontSize: 20 }} />Revoke Kuppi Role
-                    </MenuItem>
-                )}
-                <MenuItem onClick={handleOpenPermanentDeleteDialog} sx={{ color: 'error.main' }}>
-                    <DeleteForeverIcon sx={{ mr: 1.5, fontSize: 20 }} />Permanent Delete
-                </MenuItem>
-            </Menu>
-
-            {/* View Dialog */}
-            <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
-                <DialogTitle>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="h6" fontWeight={600}>Application Details</Typography>
-                        <IconButton onClick={() => setViewDialogOpen(false)} size="small"><CloseIcon /></IconButton>
-                    </Stack>
-                </DialogTitle>
-                <DialogContent dividers>
-                    {isApplicationLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
-                    ) : selectedApplication ? (
-                        <Stack spacing={3}>
-                            <Stack direction="row" spacing={2} alignItems="center">
-                                <Avatar src={selectedApplication.studentProfilePictureUrl || undefined} sx={{ width: 64, height: 64, bgcolor: theme.palette.primary.main }}>
-                                    {selectedApplication.studentName?.[0]}
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="h6" fontWeight={600}>{selectedApplication.studentName}</Typography>
-                                    <Typography variant="body2" color="text.secondary">{selectedApplication.studentEmail}</Typography>
-                                    <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                                        <Chip label={selectedApplication.studentProgram || 'N/A'} size="small" />
-                                        <Chip label={`Batch ${selectedApplication.studentBatch || 'N/A'}`} size="small" />
-                                    </Stack>
-                                </Box>
+                    {/* Hosts table */}
+                    <MotionCard elevation={0} sx={{ borderRadius: 0 }}>
+                        <CardContent>
+                            {/* Hosts search & filters */}
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <TextField
+                                        size="small"
+                                        placeholder="Search hosts"
+                                        value={hostSearchQuery}
+                                        onChange={(e) => setHostSearchQuery(e.target.value)}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
+                                            ),
+                                        }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleHostSearch(0); }}
+                                    />
+                                    <Button onClick={() => handleHostSearch(0)} variant="outlined" size="small">Search</Button>
+                                    <TextField
+                                        select
+                                        size="small"
+                                        value={hostSearchType}
+                                        onChange={(e) => setHostSearchType(e.target.value as 'name' | 'subject')}
+                                        SelectProps={{ native: true }}
+                                        sx={{ width: 140 }}
+                                    >
+                                        <option value="name">By name</option>
+                                        <option value="subject">By subject</option>
+                                    </TextField>
+                                    <TextField
+                                        select
+                                        size="small"
+                                        value={selectedFaculty}
+                                        onChange={(e) => setSelectedFaculty(e.target.value as Faculty | 'ALL')}
+                                        SelectProps={{ native: true }}
+                                        sx={{ width: 160 }}
+                                    >
+                                        <option value="ALL">All Faculties</option>
+                                        <option value="COMPUTING">Computing</option>
+                                        <option value="BUSINESS">Business</option>
+                                    </TextField>
+                                </Stack>
+                                <Tabs value={hostActiveTab} onChange={(_, v) => { setHostActiveTab(v); setHostSearchQuery(''); setSelectedFaculty('ALL'); if (v === 1) { dispatch(fetchTopRatedKuppiStudents({ page: 0, size: PAGE_SIZE })); } else { dispatch(fetchKuppiStudents({ page: 0, size: PAGE_SIZE })); } }} sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0 } }}>
+                                    <Tab label="All" />
+                                    <Tab label="Top Rated" />
+                                </Tabs>
                             </Stack>
 
-                            <Divider />
-
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="caption" color="text.secondary">Current GPA</Typography>
-                                    <Typography variant="body1" fontWeight={600}>{selectedApplication.currentGpa.toFixed(2)}</Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="caption" color="text.secondary">Current Semester</Typography>
-                                    <Typography variant="body1">{selectedApplication.currentSemester}</Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="caption" color="text.secondary">Experience Level</Typography>
-                                    <Typography variant="body1">{selectedApplication.preferredExperienceLevel}</Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="caption" color="text.secondary">Status</Typography>
-                                    <Box>
-                                        <Chip
-                                            icon={getStatusIcon(selectedApplication.status)}
-                                            label={selectedApplication.statusDisplayName}
-                                            size="small"
-                                            sx={{ bgcolor: alpha(STATUS_COLORS[selectedApplication.status], 0.1), color: STATUS_COLORS[selectedApplication.status], '& .MuiChip-icon': { color: 'inherit' } }}
-                                        />
-                                    </Box>
-                                </Grid>
-                            </Grid>
-
-                            <Box>
-                                <Typography variant="caption" color="text.secondary">Subjects to Teach</Typography>
-                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5, gap: 0.5 }}>
-                                    {selectedApplication.subjectsToTeach.map((subject, idx) => (
-                                        <Chip key={idx} label={subject} size="small" />
-                                    ))}
-                                </Stack>
-                            </Box>
-
-                            <Box>
-                                <Typography variant="caption" color="text.secondary">Motivation</Typography>
-                                <Typography variant="body2" sx={{ mt: 0.5 }}>{selectedApplication.motivation}</Typography>
-                            </Box>
-
-                            {selectedApplication.relevantExperience && (
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Relevant Experience</Typography>
-                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{selectedApplication.relevantExperience}</Typography>
-                                </Box>
+                            {studentsLoading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
+                            ) : (
+                                (() => {
+                                    if (!students || students.length === 0) {
+                                        return (
+                                            <Box sx={{ textAlign: 'center', py: 8 }}>
+                                                <Typography color="text.secondary">No hosts found</Typography>
+                                            </Box>
+                                        );
+                                    }
+                                    return (
+                                        <>
+                                            <TableContainer>
+                                                <Table size={isTablet ? 'small' : 'medium'}>
+                                                    <TableHead>
+                                                        <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                                                            <TableCell sx={{ fontWeight: 600 }}>Host</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600, display: { xs: 'none', md: 'table-cell' } }}>Email</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600, display: { xs: 'none', sm: 'table-cell' } }}>Faculty</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600 }}>Subjects</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600 }}>Rating</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600 }}>Sessions</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {students.map((s: any) => (
+                                                            <TableRow key={s.id} hover>
+                                                                <TableCell>
+                                                                    <Typography variant="body2" fontWeight={600}>{s.fullName}</Typography>
+                                                                    <Typography variant="caption" color="text.secondary">{s.studentId}</Typography>
+                                                                </TableCell>
+                                                                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{s.email}</TableCell>
+                                                                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.faculty}</TableCell>
+                                                                <TableCell>
+                                                                    <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
+                                                                        {(s.kuppiSubjects || []).slice(0, 3).map((sub: string, i: number) => <Chip key={i} label={sub} size="small" />)}
+                                                                    </Stack>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="body2">{s.kuppiRating ?? s.rating ?? '—'}</Typography>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="body2">{s.totalSessionsHosted ?? s.kuppiSessionsCompleted ?? 0}</Typography>
+                                                                </TableCell>
+                                                                <TableCell align="right">
+                                                                    <IconButton size="small" onClick={() => openHostDetail(s.id)}><VisibilityIcon fontSize="small" /></IconButton>
+                                                                    <IconButton size="small" onClick={() => { /* TODO: other admin actions e.g., revoke role */ }}><MoreVertIcon fontSize="small" /></IconButton>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </TableContainer>
+                                            <TablePagination
+                                                component="div"
+                                                count={totalStudents || 0}
+                                                page={page}
+                                                onPageChange={(_, p) => { dispatch(setKuppiCurrentPage(p)); handleHostSearch(p); }}
+                                                rowsPerPage={pageSize}
+                                                onRowsPerPageChange={(e) => { const newSize = parseInt(e.target.value, 10); dispatch(setKuppiPageSize(newSize)); dispatch(setKuppiCurrentPage(0)); handleHostSearch(0); }}
+                                                rowsPerPageOptions={[5, 10, 25]}
+                                            />
+                                        </>
+                                    );
+                                })()
                             )}
+                        </CardContent>
+                    </MotionCard>
+                </MotionCard>
+            </Box>
 
-                            {selectedApplication.reviewNotes && (
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Review Notes</Typography>
-                                    <Typography variant="body2" sx={{ mt: 0.5 }}>{selectedApplication.reviewNotes}</Typography>
-                                </Box>
-                            )}
-
-                            {selectedApplication.rejectionReason && (
-                                <Alert severity="error" sx={{ borderRadius: 2 }}>
-                                    <Typography variant="body2"><strong>Rejection Reason:</strong> {selectedApplication.rejectionReason}</Typography>
-                                </Alert>
-                            )}
+            {/* Host Detail Dialog */}
+            <Dialog open={hostDetailOpen} onClose={() => { setHostDetailOpen(false); }} maxWidth="md" fullWidth>
+                <DialogTitle>Host Details</DialogTitle>
+                <DialogContent>
+                    {selectedKuppiStudentLoading || !selectedKuppiStudent ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+                    ) : (
+                        <Stack spacing={2} sx={{ mt: 1 }}>
+                            <Typography variant="h6">{selectedKuppiStudent.fullName}</Typography>
+                            <Typography color="text.secondary">{selectedKuppiStudent.email}</Typography>
+                            <Typography>Faculty: {selectedKuppiStudent.faculty}</Typography>
+                            <Stack direction="row" spacing={1}>
+                                {(selectedKuppiStudent.kuppiSubjects || []).map((sub: string, i: number) => <Chip key={i} label={sub} size="small" />)}
+                            </Stack>
+                            <Typography>Rating: {selectedKuppiStudent.kuppiRating ?? '—'}</Typography>
+                            <Typography>Sessions hosted: {selectedKuppiStudent.kuppiSessionsCompleted ?? 0}</Typography>
                         </Stack>
-                    ) : null}
+                    )}
                 </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+                <DialogActions>
+                    <Button onClick={() => setHostDetailOpen(false)}>Close</Button>
                 </DialogActions>
             </Dialog>
+
+            <RowActionMenu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                mode="application"
+                targetItem={selectedApp}
+                onClose={handleMenuClose}
+                onView={handleView}
+                onApprove={handleOpenApproveDialog}
+                onReject={handleOpenRejectDialog}
+                onMarkUnderReview={handleMarkUnderReview}
+                extraActions={[{ key: 'permanent-delete', label: 'Permanently Delete', onClick: handleOpenPermanentDeleteDialog, color: 'error.main' }, { key: 'revoke-role', label: 'Revoke Kuppi Role', onClick: handleOpenRevokeRoleDialog, color: 'warning.main' }]}
+            />
+
+            <KuppiViewDialog
+                open={viewDialogOpen}
+                mode={viewMode}
+                application={selectedApplication}
+                session={selectedSession}
+                note={selectedNote}
+                isApplicationLoading={isApplicationLoading}
+                isSessionLoading={isSessionLoading}
+                isNoteLoading={isNoteLoading}
+                onClose={() => { setViewDialogOpen(false); setViewMode(null); }}
+                onOpenSessionById={openSessionById}
+            />
 
             {/* Approve Dialog */}
             <Dialog open={approveDialogOpen} onClose={() => setApproveDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -763,7 +960,33 @@ export default function SuperAdminKuppiPage() {
             <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
                 <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} variant="filled" sx={{ borderRadius: 2 }}>{snackbar.message}</Alert>
             </Snackbar>
-        </MotionBox>
+
+            {/* Render SessionsTable and NotesTable based on mainTab */}
+            {mainTab === 1 && (
+                <SessionsTable
+                    sessions={sessions}
+                    total={totalSessions}
+                    page={page}
+                    rowsPerPage={pageSize}
+                    isLoading={isApplicationLoading}
+                    onOpenMenu={(e, session) => handleSessionMenuOpen(e, session)}
+                    onChangePage={(p) => { dispatch(setKuppiCurrentPage(p)); dispatch(fetchSessions({ page: p, size: pageSize })); }}
+                    onChangeRowsPerPage={(size) => { dispatch(setKuppiPageSize(size)); dispatch(setKuppiCurrentPage(0)); }}
+                />
+            )}
+            {mainTab === 2 && (
+                <NotesTable
+                    notes={notes}
+                    total={totalNotes}
+                    page={page}
+                    rowsPerPage={pageSize}
+                    isLoading={isApplicationLoading}
+                    onOpenMenu={(e, note) => handleNoteMenuOpen(e, note)}
+                    onChangePage={(p) => { dispatch(setKuppiCurrentPage(p)); dispatch(fetchNotes({ page: p, size: pageSize })); }}
+                    onChangeRowsPerPage={(size) => { dispatch(setKuppiPageSize(size)); dispatch(setKuppiCurrentPage(0)); }}
+                />
+            )}
+        </KuppiCommon>
     );
 }
 
