@@ -92,6 +92,11 @@ import {
     selectKuppiStudentDetailLoading,
     KuppiStudentResponse,
     Faculty,
+    PermanentDeleteApplication,
+    PermanentDeleteSession,
+    PermanentDeleteNote,
+    RevokeKuppiRole,
+    selectKuppiIsDeleting,
 } from '@/features/kuppi';
 import * as kuppiServices from '@/features/kuppi/services';
 import { ApplicationsTable, RowActionMenu, KuppiViewDialog, KuppiCommon, SessionsTable, NotesTable, SessionSearchPanel } from '@/components/kuppi';
@@ -167,8 +172,8 @@ export default function SuperAdminKuppiPage() {
     const pageSize = useAppSelector(selectKuppiPageSize);
     const isLoading = useAppSelector(selectKuppiIsLoading);
     const isApplicationLoading = useAppSelector(selectKuppiIsApplicationLoading);
-    const isSessionLoading = useAppSelector((state) => (state as any).kuppi?.isSessionLoading ?? false);
-    const isNoteLoading = useAppSelector((state) => (state as any).kuppi?.isNoteLoading ?? false);
+    const isSessionLoading = useAppSelector(selectKuppiIsSessionLoading);
+    const isNoteLoading = useAppSelector(selectKuppiIsNoteLoading);
     const isApproving = useAppSelector(selectKuppiIsCreating);
     const isRejecting = useAppSelector(selectKuppiIsUpdating);
     const error = useAppSelector(selectKuppiError);
@@ -179,6 +184,7 @@ export default function SuperAdminKuppiPage() {
     const studentsLoading = useAppSelector(selectKuppiStudentsLoading);
     const selectedKuppiStudent = useAppSelector(selectSelectedKuppiStudent);
     const selectedKuppiStudentLoading = useAppSelector(selectKuppiStudentDetailLoading);
+    const isDeleting = useAppSelector(selectKuppiIsDeleting);
 
     // Local state
     const [searchQuery, setSearchQuery] = useState('');
@@ -193,13 +199,13 @@ export default function SuperAdminKuppiPage() {
     const [approveDialogOpen, setApproveDialogOpen] = useState(false);
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
     const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false);
+    const [permanentDeleteType, setPermanentDeleteType] = useState<'application' | 'session' | 'note'>('application');
     const [revokeRoleDialogOpen, setRevokeRoleDialogOpen] = useState(false);
     const [reviewNotes, setReviewNotes] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
     const [revokeReason, setRevokeReason] = useState('');
     const [confirmText, setConfirmText] = useState('');
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-    const [actionLoading, setActionLoading] = useState(false);
     const [viewMode, setViewMode] = useState<'application' | 'session' | 'note' | null>(null);
 
     // Hosts-specific UI state
@@ -207,6 +213,8 @@ export default function SuperAdminKuppiPage() {
     const [hostSearchType, setHostSearchType] = useState<'name' | 'subject'>('name');
     const [selectedFaculty, setSelectedFaculty] = useState<Faculty | 'ALL'>('ALL');
     const [hostActiveTab, setHostActiveTab] = useState(0); // 0=All,1=Top Rated
+    const [hostAnchorEl, setHostAnchorEl] = useState<null | HTMLElement>(null);
+    const [hostActionTarget, setHostActionTarget] = useState<any | null>(null);
 
     const PAGE_SIZE = pageSize || 10;
 
@@ -433,48 +441,61 @@ export default function SuperAdminKuppiPage() {
         }
     };
 
-    // Handle permanent delete
+    // Handle permanent delete (application)
     const handleOpenPermanentDeleteDialog = () => {
         handleMenuClose();
         setConfirmText('');
+        setPermanentDeleteType('application');
+        setPermanentDeleteDialogOpen(true);
+    };
+
+    // Handle permanent delete (session)
+    const handleOpenSessionPermanentDeleteDialog = () => {
+        setSessionAnchorEl(null); // close menu only, keep sessionActionTarget
+        setConfirmText('');
+        setPermanentDeleteType('session');
+        setPermanentDeleteDialogOpen(true);
+    };
+
+    // Handle permanent delete (note)
+    const handleOpenNotePermanentDeleteDialog = () => {
+        setNoteAnchorEl(null); // close menu only, keep noteActionTarget
+        setConfirmText('');
+        setPermanentDeleteType('note');
         setPermanentDeleteDialogOpen(true);
     };
 
     const handlePermanentDelete = async () => {
-        if (selectedApp && confirmText === 'DELETE') {
-            setActionLoading(true);
-            try {
-                await kuppiServices.superAdminPermanentDeleteApplication(selectedApp.id);
-                setPermanentDeleteDialogOpen(false);
-                handleRefresh();
-                setSnackbar({ open: true, message: 'Application permanently deleted', severity: 'success' });
-            } catch (err) {
-                setSnackbar({ open: true, message: 'Failed to delete application', severity: 'error' });
-            } finally {
-                setActionLoading(false);
+        if (confirmText !== 'DELETE') return;
+        try {
+            if (permanentDeleteType === 'application' && selectedApp) {
+                await dispatch(PermanentDeleteApplication(selectedApp.id)).unwrap();
+            } else if (permanentDeleteType === 'session' && sessionActionTarget) {
+                await dispatch(PermanentDeleteSession(sessionActionTarget.id)).unwrap();
+            } else if (permanentDeleteType === 'note' && noteActionTarget) {
+                await dispatch(PermanentDeleteNote(noteActionTarget.id)).unwrap();
             }
+            setPermanentDeleteDialogOpen(false);
+        } catch (err: any) {
+            setSnackbar({ open: true, message: err || 'Failed to permanently delete', severity: 'error' });
         }
     };
 
-    // Handle revoke role
+    // Handle revoke role (from Hosts tab)
     const handleOpenRevokeRoleDialog = () => {
-        handleMenuClose();
+        setHostAnchorEl(null); // close host menu, keep hostActionTarget
         setRevokeReason('');
         setRevokeRoleDialogOpen(true);
     };
 
     const handleRevokeRole = async () => {
-        if (selectedApp && revokeReason) {
-            setActionLoading(true);
+        if (hostActionTarget && revokeReason) {
             try {
-                await kuppiServices.superAdminRevokeKuppiRole(selectedApp.studentId, revokeReason);
+                await dispatch(RevokeKuppiRole({ userId: hostActionTarget.id, reason: revokeReason })).unwrap();
                 setRevokeRoleDialogOpen(false);
-                handleRefresh();
-                setSnackbar({ open: true, message: 'Kuppi role revoked successfully', severity: 'success' });
-            } catch (err) {
-                setSnackbar({ open: true, message: 'Failed to revoke role', severity: 'error' });
-            } finally {
-                setActionLoading(false);
+                setHostActionTarget(null);
+            } catch (err: any) {
+                setSnackbar({ open: true, message: err || 'Failed to revoke role', severity: 'error' });
             }
         }
     };
@@ -759,7 +780,7 @@ export default function SuperAdminKuppiPage() {
                                                                 </TableCell>
                                                                 <TableCell align="right">
                                                                     <IconButton size="small" onClick={() => openHostDetail(s.id)}><VisibilityIcon fontSize="small" /></IconButton>
-                                                                    <IconButton size="small" onClick={() => { /* TODO: other admin actions e.g., revoke role */ }}><MoreVertIcon fontSize="small" /></IconButton>
+                                                                    <IconButton size="small" onClick={(e) => { setHostAnchorEl(e.currentTarget); setHostActionTarget(s); }}><MoreVertIcon fontSize="small" /></IconButton>
                                                                 </TableCell>
                                                             </TableRow>
                                                         ))}
@@ -818,7 +839,40 @@ export default function SuperAdminKuppiPage() {
                 onApprove={handleOpenApproveDialog}
                 onReject={handleOpenRejectDialog}
                 onMarkUnderReview={handleMarkUnderReview}
-                extraActions={[{ key: 'permanent-delete', label: 'Permanently Delete', onClick: handleOpenPermanentDeleteDialog, color: 'error.main' }, { key: 'revoke-role', label: 'Revoke Kuppi Role', onClick: handleOpenRevokeRoleDialog, color: 'warning.main' }]}
+                extraActions={[{ key: 'permanent-delete', label: 'Permanently Delete', onClick: handleOpenPermanentDeleteDialog, color: 'error.main' }]}
+            />
+
+            {/* Session Action Menu */}
+            <RowActionMenu
+                anchorEl={sessionAnchorEl}
+                open={Boolean(sessionAnchorEl)}
+                mode="session"
+                targetItem={sessionActionTarget}
+                onClose={handleSessionMenuClose}
+                onView={handleSessionView}
+                extraActions={[{ key: 'permanent-delete', label: 'Permanently Delete', onClick: handleOpenSessionPermanentDeleteDialog, color: 'error.main' }]}
+            />
+
+            {/* Note Action Menu */}
+            <RowActionMenu
+                anchorEl={noteAnchorEl}
+                open={Boolean(noteAnchorEl)}
+                mode="note"
+                targetItem={noteActionTarget}
+                onClose={handleNoteMenuClose}
+                onView={handleNoteView}
+                extraActions={[{ key: 'permanent-delete', label: 'Permanently Delete', onClick: handleOpenNotePermanentDeleteDialog, color: 'error.main' }]}
+            />
+
+            {/* Host Action Menu */}
+            <RowActionMenu
+                anchorEl={hostAnchorEl}
+                open={Boolean(hostAnchorEl)}
+                mode="session"
+                targetItem={hostActionTarget}
+                onClose={() => { setHostAnchorEl(null); setHostActionTarget(null); }}
+                onView={() => { if (hostActionTarget) { setHostAnchorEl(null); openHostDetail(hostActionTarget.id); } }}
+                extraActions={[{ key: 'revoke-role', label: 'Revoke Kuppi Role', onClick: handleOpenRevokeRoleDialog, color: 'warning.main' }]}
             />
 
             <KuppiViewDialog
@@ -893,12 +947,12 @@ export default function SuperAdminKuppiPage() {
                 <DialogTitle sx={{ color: 'error.main' }}>
                     <Stack direction="row" alignItems="center" spacing={1}>
                         <WarningIcon />
-                        <Typography variant="h6">Permanent Delete</Typography>
+                        <Typography variant="h6">Permanently Delete {permanentDeleteType.charAt(0).toUpperCase() + permanentDeleteType.slice(1)}</Typography>
                     </Stack>
                 </DialogTitle>
                 <DialogContent>
                     <Alert severity="error" sx={{ mb: 2 }}>
-                        This action is <strong>IRREVERSIBLE</strong>. The application will be permanently deleted from the database.
+                        This action is <strong>IRREVERSIBLE</strong>. The {permanentDeleteType} will be permanently deleted from the database.
                     </Alert>
                     <Typography sx={{ mb: 2 }}>Type <strong>DELETE</strong> to confirm:</Typography>
                     <TextField
@@ -914,9 +968,9 @@ export default function SuperAdminKuppiPage() {
                         variant="contained"
                         color="error"
                         onClick={handlePermanentDelete}
-                        disabled={confirmText !== 'DELETE' || actionLoading}
+                        disabled={confirmText !== 'DELETE' || isDeleting}
                     >
-                        {actionLoading ? <CircularProgress size={20} /> : 'Delete Permanently'}
+                        {isDeleting ? <CircularProgress size={20} /> : 'Delete Permanently'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -949,9 +1003,9 @@ export default function SuperAdminKuppiPage() {
                         variant="contained"
                         color="warning"
                         onClick={handleRevokeRole}
-                        disabled={!revokeReason || actionLoading}
+                        disabled={!revokeReason || isDeleting}
                     >
-                        {actionLoading ? <CircularProgress size={20} /> : 'Revoke Role'}
+                        {isDeleting ? <CircularProgress size={20} /> : 'Revoke Role'}
                     </Button>
                 </DialogActions>
             </Dialog>
