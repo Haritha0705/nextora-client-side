@@ -3,21 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box,
-    Typography,
     TextField,
     InputAdornment,
-    Button,
     Snackbar,
     Alert,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import { motion } from 'framer-motion';
 import { useClub } from '@/hooks/useClub';
 import { ClubList } from '@/components/club/ClubList';
+import ClubCommon from '@/components/club/ClubCommon';
 import type { ClubResponse } from '@/features/club/types';
-
-const MotionBox = motion.create(Box);
+import Diversity3Icon from '@mui/icons-material/Diversity3';
+import GroupsIcon from '@mui/icons-material/Groups';
 
 /**
  * Academic Staff Clubs Page (Read-Only)
@@ -27,6 +24,7 @@ const MotionBox = motion.create(Box);
 export default function AcademicClubsPage() {
     const {
         clubs,
+        totalClubs,
         isClubLoading,
         error,
         loadClubs,
@@ -35,6 +33,7 @@ export default function AcademicClubsPage() {
     } = useClub();
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [mainTab, setMainTab] = useState(0);
 
     useEffect(() => {
         loadClubs({ page: 0, size: 20 });
@@ -53,29 +52,26 @@ export default function AcademicClubsPage() {
 
     const handleViewClub = (_club: ClubResponse) => {
         // Read-only: academic staff can only view details
-        // Could expand with a detail dialog in the future
     };
 
-    return (
-        <Box sx={{ maxWidth: 1200, mx: 'auto', p: { xs: 2, sm: 3 } }}>
-            <MotionBox initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Box>
-                        <Typography variant="h4" fontWeight={700}>Clubs</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Browse university clubs (read-only)
-                        </Typography>
-                    </Box>
-                    <Button
-                        variant="outlined"
-                        startIcon={<RefreshIcon />}
-                        onClick={() => loadClubs({ page: 0, size: 20 })}
-                        sx={{ textTransform: 'none' }}
-                    >
-                        Refresh
-                    </Button>
-                </Box>
+    const overviewStats = [
+        { label: 'Total Clubs', value: totalClubs, icon: Diversity3Icon, color: '#3B82F6' },
+        { label: 'Open Registration', value: clubs.filter(c => c.registrationOpen).length, icon: GroupsIcon, color: '#10B981' },
+    ];
 
+    return (
+        <ClubCommon
+            title="Clubs"
+            description="Browse university clubs (read-only)"
+            overviewStats={overviewStats}
+            mainTab={mainTab}
+            onMainTabChange={(_, v) => setMainTab(v)}
+            tabLabels={[`All Clubs (${totalClubs})`]}
+            isLoading={isClubLoading}
+            onRefresh={() => loadClubs({ page: 0, size: 20 })}
+            showTabs={false}
+        >
+            <Box>
                 <TextField
                     placeholder="Search clubs..."
                     value={searchQuery}
@@ -91,21 +87,17 @@ export default function AcademicClubsPage() {
                         },
                     }}
                 />
-            </MotionBox>
 
-            <ClubList
-                clubs={clubs}
-                isLoading={isClubLoading}
-                onView={handleViewClub}
-            />
+                <ClubList
+                    clubs={clubs}
+                    isLoading={isClubLoading}
+                    onView={handleViewClub}
+                />
+            </Box>
 
-            <Snackbar open={!!error} autoHideDuration={5000} onClose={clearError}>
-                <Alert severity="error" onClose={clearError}>{error}</Alert>
+            <Snackbar open={!!error} autoHideDuration={5000} onClose={clearError} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+                <Alert severity="error" onClose={clearError} variant="filled" sx={{ borderRadius: 1 }}>{error}</Alert>
             </Snackbar>
-        </Box>
+        </ClubCommon>
     );
 }
-
-
-
-

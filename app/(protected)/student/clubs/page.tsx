@@ -18,11 +18,11 @@ import {
     Avatar,
     Paper,
     IconButton,
-    Drawer,
-    Divider,
-    Skeleton,
     Badge,
     Tooltip,
+    Card,
+    CardContent,
+    Grid,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -30,24 +30,30 @@ import Diversity3Icon from '@mui/icons-material/Diversity3';
 import CloseIcon from '@mui/icons-material/Close';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import GroupsIcon from '@mui/icons-material/Groups';
-import CampaignIcon from '@mui/icons-material/Campaign';
-import HowToVoteIcon from '@mui/icons-material/HowToVote';
 import VerifiedIcon from '@mui/icons-material/Verified';
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-import StarIcon from '@mui/icons-material/Star';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useClub } from '@/hooks/useClub';
 import { ClubList } from '@/components/club/ClubList';
 import { JoinClubDialog } from '@/components/club/JoinClubDialog';
-import { AnnouncementCard } from '@/components/club/AnnouncementCard';
-import { ElectionCard } from '@/components/club/ElectionCard';
 import type { ClubResponse, MembershipResponse } from '@/features/club/types';
 
 const MotionBox = motion.create(Box);
 
-// Membership card component for "My Clubs" tab
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
+
+// ── Membership Card for "My Clubs" tab ──────────────────────
 function MembershipCard({ membership, onLeave, onSelect }: {
     membership: MembershipResponse;
     onLeave: (clubId: number) => void;
@@ -60,40 +66,44 @@ function MembershipCard({ membership, onLeave, onSelect }: {
         VICE_PRESIDENT: '#8B5CF6',
         SECRETARY: '#3B82F6',
         TREASURER: '#10B981',
+        TOP_BOARD_MEMBER: '#EC4899',
         COMMITTEE_MEMBER: '#6366F1',
         MEMBER: '#6B7280',
     };
 
-    const posColor = POSITION_COLORS[membership.position] || '#6B7280';
+    const posColor = (membership.position && POSITION_COLORS[membership.position]) || '#6B7280';
 
     return (
         <Paper
             elevation={0}
             sx={{
                 p: 2.5,
-                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 2,
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.25s ease',
                 '&:hover': {
-                    borderColor: alpha(theme.palette.primary.main, 0.3),
-                    bgcolor: alpha(theme.palette.primary.main, 0.02),
-                    transform: 'translateX(4px)',
+                    borderColor: 'primary.main',
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
                 },
             }}
             onClick={() => onSelect(membership.clubId)}
         >
             <Avatar
                 sx={{
-                    width: 48,
-                    height: 48,
+                    width: 44,
+                    height: 44,
                     bgcolor: alpha(posColor, 0.1),
                     color: posColor,
                     fontWeight: 700,
                     fontSize: '1rem',
+                    border: '2px solid',
+                    borderColor: alpha(posColor, 0.2),
                 }}
             >
                 {membership.clubName.charAt(0)}
@@ -107,31 +117,35 @@ function MembershipCard({ membership, onLeave, onSelect }: {
                         <VerifiedIcon sx={{ fontSize: 16, color: 'success.main' }} />
                     )}
                 </Box>
-                <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                     <Chip
-                        label={membership.position.replace(/_/g, ' ')}
+                        label={membership.position?.replace(/_/g, ' ') || 'Member'}
                         size="small"
                         sx={{
-                            fontSize: '0.68rem',
+                            fontSize: '0.7rem',
                             height: 22,
                             fontWeight: 600,
                             bgcolor: alpha(posColor, 0.1),
                             color: posColor,
-                            border: `1px solid ${alpha(posColor, 0.2)}`,
+                            border: '1px solid',
+                            borderColor: alpha(posColor, 0.2),
                         }}
                     />
                     <Chip
                         label={membership.status}
                         size="small"
                         color={membership.status === 'ACTIVE' ? 'success' : 'warning'}
-                        sx={{ fontSize: '0.68rem', height: 22 }}
+                        sx={{ fontSize: '0.7rem', height: 22 }}
                     />
-                </Box>
+                </Stack>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
-                <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.68rem' }}>
-                    Joined {new Date(membership.joinedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </Typography>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                    <CalendarTodayIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.68rem' }}>
+                        {new Date(membership.joinedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </Typography>
+                </Stack>
                 {membership.status === 'ACTIVE' && (
                     <Tooltip title="Leave Club">
                         <IconButton
@@ -142,6 +156,9 @@ function MembershipCard({ membership, onLeave, onSelect }: {
                                 onLeave(membership.clubId);
                             }}
                             sx={{
+                                border: '1px solid',
+                                borderColor: alpha(theme.palette.error.main, 0.2),
+                                borderRadius: 1,
                                 bgcolor: alpha(theme.palette.error.main, 0.06),
                                 '&:hover': { bgcolor: alpha(theme.palette.error.main, 0.12) },
                             }}
@@ -156,21 +173,17 @@ function MembershipCard({ membership, onLeave, onSelect }: {
 }
 
 /**
- * Student Clubs Page — Enhanced UI
+ * Student Clubs Page — Kuppi-level UI
  */
 export default function StudentClubsPage() {
     const theme = useTheme();
+    const router = useRouter();
     const {
         clubs,
         totalClubs,
         myMemberships,
-        announcements,
-        pinnedAnnouncements,
-        elections,
         isClubLoading,
         isMembershipLoading,
-        isAnnouncementLoading,
-        isElectionLoading,
         error,
         successMessage,
         permissions,
@@ -178,9 +191,6 @@ export default function StudentClubsPage() {
         searchClubs,
         loadOpenRegistrationClubs,
         loadMyMemberships,
-        loadPublicAnnouncements,
-        loadPinnedAnnouncements,
-        loadElections,
         joinClub,
         leaveClub,
         clearError,
@@ -191,8 +201,7 @@ export default function StudentClubsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [joinDialogOpen, setJoinDialogOpen] = useState(false);
     const [selectedClubForJoin, setSelectedClubForJoin] = useState<ClubResponse | null>(null);
-    const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
-    const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
     // Load initial data
     useEffect(() => {
@@ -223,14 +232,18 @@ export default function StudentClubsPage() {
         }
     }, [activeTab, loadOpenRegistrationClubs, searchQuery]);
 
-    // Load announcements & elections for a selected club
+
+    // Error/Success handling
     useEffect(() => {
-        if (selectedClubId) {
-            loadPublicAnnouncements(selectedClubId, { page: 0, size: 10 });
-            loadPinnedAnnouncements(selectedClubId, { page: 0, size: 10 });
-            loadElections(selectedClubId, { page: 0, size: 10 });
+        if (error) {
+            setSnackbar({ open: true, message: error, severity: 'error' });
+            clearError();
         }
-    }, [selectedClubId, loadPublicAnnouncements, loadPinnedAnnouncements, loadElections]);
+        if (successMessage) {
+            setSnackbar({ open: true, message: successMessage, severity: 'success' });
+            clearSuccess();
+        }
+    }, [error, successMessage, clearError, clearSuccess]);
 
     const memberClubIds = myMemberships
         .filter((m) => m.status === 'ACTIVE')
@@ -238,11 +251,11 @@ export default function StudentClubsPage() {
 
     const activeMemberships = myMemberships.filter((m) => m.status === 'ACTIVE');
     const pendingMemberships = myMemberships.filter((m) => m.status === 'PENDING');
+    const openClubs = clubs.filter((c) => c.registrationOpen);
 
     const handleViewClub = useCallback((club: ClubResponse) => {
-        setSelectedClubId(club.id);
-        setDetailDrawerOpen(true);
-    }, []);
+        router.push(`/student/clubs/${club.id}`);
+    }, [router]);
 
     const handleJoinClick = useCallback((club: ClubResponse) => {
         setSelectedClubForJoin(club);
@@ -261,260 +274,256 @@ export default function StudentClubsPage() {
         [selectedClubForJoin, joinClub, loadMyMemberships],
     );
 
+    const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+        setActiveTab(newValue);
+    };
+
+    const handleSearch = useCallback(() => {
+        if (searchQuery.trim()) {
+            searchClubs({ keyword: searchQuery, page: 0, size: 20 });
+        } else {
+            loadClubs({ page: 0, size: 20 });
+        }
+    }, [searchClubs, loadClubs, searchQuery]);
+
     const handleRefresh = () => {
         loadClubs({ page: 0, size: 20 });
         loadMyMemberships({ page: 0, size: 50 });
     };
 
-    const selectedClubData = clubs.find((c) => c.id === selectedClubId);
+    // ── Stats ──
+    const stats = [
+        { label: 'Total Clubs', value: totalClubs, icon: Diversity3Icon, color: '#3B82F6' },
+        { label: 'My Clubs', value: activeMemberships.length, icon: GroupsIcon, color: '#10B981' },
+        { label: 'Pending', value: pendingMemberships.length, icon: HourglassEmptyIcon, color: '#F59E0B' },
+        { label: 'Open Registration', value: openClubs.length, icon: PersonAddIcon, color: '#6366F1' },
+    ];
 
     return (
-        <Box sx={{ maxWidth: 1200, mx: 'auto', p: { xs: 2, sm: 3 } }}>
-            {/* Header */}
-            <MotionBox initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-                <Box
-                    sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: { xs: 'flex-start', sm: 'center' },
-                        flexDirection: { xs: 'column', sm: 'row' },
-                        gap: 2,
-                        mb: 3,
-                    }}
-                >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Box
-                            sx={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: 2.5,
-                                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.85)} 0%, ${alpha('#6366F1', 0.7)} 100%)`,
-                                display: { xs: 'none', sm: 'flex' },
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <Diversity3Icon sx={{ color: '#fff', fontSize: 26 }} />
-                        </Box>
-                        <Box>
-                            <Typography variant="h4" fontWeight={800} sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-                                Clubs
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Browse, join, and explore university clubs
-                            </Typography>
-                        </Box>
+        <MotionBox variants={containerVariants} initial="hidden" animate="show" sx={{ maxWidth: 1400, mx: 'auto' }}>
+            {/* ══════════════  PAGE HEADER  ══════════════ */}
+            <MotionBox variants={itemVariants} sx={{ mb: 4 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
+                    <Box>
+                        <Typography variant="h4" fontWeight={700} gutterBottom sx={{ letterSpacing: '-0.02em' }}>
+                            Clubs
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Browse, join, and explore university clubs
+                        </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                         {activeMemberships.length > 0 && (
                             <Chip
                                 icon={<GroupsIcon sx={{ fontSize: '16px !important' }} />}
                                 label={`${activeMemberships.length} Club${activeMemberships.length !== 1 ? 's' : ''} Joined`}
-                                color="primary"
-                                variant="outlined"
-                                sx={{ fontWeight: 600 }}
+                                size="small"
+                                sx={{
+                                    fontWeight: 600,
+                                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                    color: 'primary.main',
+                                    border: '1px solid',
+                                    borderColor: alpha(theme.palette.primary.main, 0.2),
+                                    '& .MuiChip-icon': { color: 'inherit' },
+                                }}
                             />
                         )}
-                        <Button
-                            variant="outlined"
-                            startIcon={<RefreshIcon />}
-                            onClick={handleRefresh}
-                            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}
-                        >
-                            Refresh
-                        </Button>
-                    </Box>
-                </Box>
-
-                {/* Search Bar */}
-                <TextField
-                    placeholder="Search clubs by name, faculty, or description..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    fullWidth
-                    size="small"
-                    sx={{
-                        mb: 2.5,
-                        '& .MuiOutlinedInput-root': {
-                            borderRadius: 2.5,
-                            bgcolor: alpha(theme.palette.background.paper, 0.8),
-                        },
-                    }}
-                    slotProps={{
-                        input: {
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: 'text.disabled' }} />
-                                </InputAdornment>
-                            ),
-                            endAdornment: searchQuery ? (
-                                <InputAdornment position="end">
-                                    <IconButton size="small" onClick={() => setSearchQuery('')}>
-                                        <CloseIcon sx={{ fontSize: 16 }} />
-                                    </IconButton>
-                                </InputAdornment>
-                            ) : null,
-                        },
-                    }}
-                />
-
-                {/* Tabs */}
-                <Tabs
-                    value={activeTab}
-                    onChange={(_, v) => setActiveTab(v)}
-                    sx={{
-                        mb: 3,
-                        '& .MuiTab-root': {
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            fontSize: '0.9rem',
-                            minHeight: 44,
-                        },
-                        '& .MuiTabs-indicator': { height: 3, borderRadius: 1.5 },
-                    }}
-                >
-                    <Tab label={`All Clubs (${totalClubs})`} />
-                    <Tab label="Open Registration" />
-                    <Tab
-                        label={
-                            <Badge
-                                badgeContent={pendingMemberships.length}
-                                color="warning"
-                                sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', height: 16, minWidth: 16 } }}
-                            >
-                                <span>My Clubs ({activeMemberships.length})</span>
-                            </Badge>
-                        }
-                    />
-                </Tabs>
+                    </Stack>
+                </Stack>
             </MotionBox>
 
-            {/* Tab Panels */}
+            {/* ══════════════  STATS GRID  ══════════════ */}
+            <Box sx={{ mb: 4 }}>
+                <Grid container spacing={2}>
+                    {stats.map((stat, index) => {
+                        const Icon = stat.icon;
+                        return (
+                            <Grid size={{ xs: 6, sm: 3 }} key={index}>
+                                <Card
+                                    elevation={0}
+                                    sx={{
+                                        borderRadius: 1,
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        transition: 'all 0.2s',
+                                        '&:hover': { borderColor: stat.color, boxShadow: `0 4px 16px ${alpha(stat.color, 0.15)}` },
+                                    }}
+                                >
+                                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                                            <Box
+                                                sx={{
+                                                    width: 44,
+                                                    height: 44,
+                                                    borderRadius: 1,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    bgcolor: alpha(stat.color, 0.1),
+                                                    border: '1px solid',
+                                                    borderColor: alpha(stat.color, 0.15),
+                                                }}
+                                            >
+                                                <Icon sx={{ color: stat.color, fontSize: 22 }} />
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="h5" fontWeight={700} sx={{ lineHeight: 1.1 }}>{stat.value}</Typography>
+                                                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>{stat.label}</Typography>
+                                            </Box>
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        );
+                    })}
+                </Grid>
+            </Box>
+
+            {/* ══════════════  FILTERS  ══════════════ */}
+            <Card
+                elevation={0}
+                sx={{
+                    mb: 4,
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: alpha(theme.palette.background.paper, 0.8),
+                    backdropFilter: 'blur(12px)',
+                }}
+            >
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between">
+                        <TextField
+                            placeholder="Search clubs..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            size="small"
+                            sx={{
+                                maxWidth: { sm: 320 },
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 1,
+                                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderWidth: 1 },
+                                },
+                            }}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <IconButton size="small" onClick={handleSearch} disabled={isClubLoading}>
+                                                <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: searchQuery ? (
+                                        <InputAdornment position="end">
+                                            <IconButton size="small" onClick={() => { setSearchQuery(''); loadClubs({ page: 0, size: 20 }); }}>
+                                                <CloseIcon fontSize="small" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                },
+                            }}
+                        />
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Tabs
+                                value={activeTab}
+                                onChange={handleTabChange}
+                                sx={{
+                                    minHeight: 36,
+                                    '& .MuiTab-root': {
+                                        minHeight: 36,
+                                        textTransform: 'none',
+                                        fontWeight: 600,
+                                        fontSize: '0.8125rem',
+                                        borderRadius: 1,
+                                        px: 2,
+                                    },
+                                    '& .MuiTabs-indicator': { borderRadius: 1, height: 2 },
+                                }}
+                            >
+                                <Tab label="All Clubs" />
+                                <Tab label="Open" />
+                                <Tab
+                                    label={
+                                        <Badge
+                                            badgeContent={pendingMemberships.length}
+                                            color="warning"
+                                            sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', height: 16, minWidth: 16 } }}
+                                        >
+                                            <span>My Clubs</span>
+                                        </Badge>
+                                    }
+                                />
+                            </Tabs>
+                            <Tooltip title="Refresh">
+                                <IconButton
+                                    onClick={handleRefresh}
+                                    disabled={isClubLoading}
+                                    size="small"
+                                    sx={{
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderRadius: 1,
+                                        '&:hover': { borderColor: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.05) },
+                                    }}
+                                >
+                                    <RefreshIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </Stack>
+                    </Stack>
+                </CardContent>
+            </Card>
+
+            {/* ══════════════  TAB PANELS  ══════════════ */}
             <AnimatePresence mode="wait">
                 {activeTab === 0 && (
-                    <MotionBox
-                        key="all"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                    >
+                    <MotionBox key="all" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                         <ClubList
                             clubs={clubs}
                             isLoading={isClubLoading}
                             onView={handleViewClub}
-                            onJoin={handleJoinClick}
-                            canJoin={permissions?.canJoinClub ?? false}
                             memberClubIds={memberClubIds}
                         />
                     </MotionBox>
                 )}
 
                 {activeTab === 1 && (
-                    <MotionBox
-                        key="open"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                    >
-                        <ClubList
-                            clubs={clubs}
-                            isLoading={isClubLoading}
-                            onView={handleViewClub}
-                            onJoin={handleJoinClick}
-                            canJoin={permissions?.canJoinClub ?? false}
-                            memberClubIds={memberClubIds}
-                            emptyMessage="No clubs are currently accepting new members."
-                        />
+                    <MotionBox key="open" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                        <ClubList clubs={clubs} isLoading={isClubLoading} onView={handleViewClub} onJoin={handleJoinClick} canJoin={permissions?.canJoinClub ?? false} memberClubIds={memberClubIds} emptyMessage="No clubs are currently accepting new members." />
                     </MotionBox>
                 )}
 
                 {activeTab === 2 && (
-                    <MotionBox
-                        key="my"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                    >
+                    <MotionBox key="my" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                         {myMemberships.length === 0 ? (
-                            <Box
-                                sx={{
-                                    textAlign: 'center',
-                                    py: { xs: 6, sm: 10 },
-                                    px: 3,
-                                }}
-                            >
-                                <Box
-                                    sx={{
-                                        width: 80,
-                                        height: 80,
-                                        borderRadius: '50%',
-                                        bgcolor: alpha(theme.palette.primary.main, 0.08),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        mx: 'auto',
-                                        mb: 3,
-                                    }}
-                                >
+                            <Paper elevation={0} sx={{ p: 8, textAlign: 'center', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                                <Box sx={{ width: 80, height: 80, borderRadius: '50%', bgcolor: alpha(theme.palette.primary.main, 0.08), display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2.5 }}>
                                     <GroupsIcon sx={{ fontSize: 40, color: alpha(theme.palette.primary.main, 0.4) }} />
                                 </Box>
-                                <Typography variant="h6" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>
-                                    You haven&apos;t joined any clubs yet
-                                </Typography>
-                                <Typography variant="body2" color="text.disabled" sx={{ mb: 3, maxWidth: 400, mx: 'auto' }}>
-                                    Browse available clubs and submit a join request to get started.
-                                </Typography>
-                                <Button
-                                    variant="contained"
-                                    onClick={() => setActiveTab(0)}
-                                    sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}
-                                >
+                                <Typography variant="h6" fontWeight={600} gutterBottom>You haven&apos;t joined any clubs yet</Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360, mx: 'auto', mb: 3 }}>Browse available clubs and submit a join request to get started.</Typography>
+                                <Button variant="contained" onClick={() => setActiveTab(0)} size="small" sx={{ textTransform: 'none', borderRadius: 1, fontWeight: 700, boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}` }}>
                                     Browse Clubs
                                 </Button>
-                            </Box>
+                            </Paper>
                         ) : (
                             <Stack spacing={1.5}>
-                                {/* Active memberships first */}
                                 {activeMemberships.length > 0 && (
                                     <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 1 }}>
                                         Active ({activeMemberships.length})
                                     </Typography>
                                 )}
                                 {activeMemberships.map((m) => (
-                                    <MembershipCard
-                                        key={m.id}
-                                        membership={m}
-                                        onLeave={(id) => leaveClub(id)}
-                                        onSelect={(id) => {
-                                            setSelectedClubId(id);
-                                            setDetailDrawerOpen(true);
-                                        }}
-                                    />
+                                    <MembershipCard key={m.id} membership={m} onLeave={(id) => leaveClub(id)} onSelect={(id) => router.push(`/student/clubs/${id}`)} />
                                 ))}
-
-                                {/* Pending memberships */}
                                 {pendingMemberships.length > 0 && (
                                     <>
-                                        <Typography
-                                            variant="overline"
-                                            color="text.secondary"
-                                            sx={{ fontWeight: 600, letterSpacing: 1, mt: 2 }}
-                                        >
-                                            Pending ({pendingMemberships.length})
-                                        </Typography>
+                                        <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 1, mt: 2 }}>Pending ({pendingMemberships.length})</Typography>
                                         {pendingMemberships.map((m) => (
-                                            <MembershipCard
-                                                key={m.id}
-                                                membership={m}
-                                                onLeave={() => {}}
-                                                onSelect={(id) => {
-                                                    setSelectedClubId(id);
-                                                    setDetailDrawerOpen(true);
-                                                }}
-                                            />
+                                            <MembershipCard key={m.id} membership={m} onLeave={() => {}} onSelect={(id) => router.push(`/student/clubs/${id}`)} />
                                         ))}
                                     </>
                                 )}
@@ -524,224 +533,14 @@ export default function StudentClubsPage() {
                 )}
             </AnimatePresence>
 
-            {/* Club Detail Drawer */}
-            <Drawer
-                anchor="right"
-                open={detailDrawerOpen}
-                onClose={() => setDetailDrawerOpen(false)}
-                PaperProps={{
-                    sx: {
-                        width: { xs: '100%', sm: 420 },
-                        borderRadius: { xs: 0, sm: '16px 0 0 16px' },
-                    },
-                }}
-            >
-                {selectedClubId && (
-                    <Box sx={{ height: '100%', overflow: 'auto' }}>
-                        {/* Drawer Header */}
-                        <Box
-                            sx={{
-                                height: 120,
-                                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.85)} 0%, ${alpha('#6366F1', 0.7)} 100%)`,
-                                display: 'flex',
-                                alignItems: 'flex-end',
-                                px: 3,
-                                pb: 2,
-                                position: 'relative',
-                            }}
-                        >
-                            <IconButton
-                                onClick={() => setDetailDrawerOpen(false)}
-                                sx={{
-                                    position: 'absolute',
-                                    top: 8,
-                                    left: 8,
-                                    color: 'rgba(255,255,255,0.8)',
-                                    '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
-                                }}
-                            >
-                                <ArrowBackIcon />
-                            </IconButton>
-
-                            {selectedClubData && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <Avatar
-                                        src={selectedClubData.logoUrl || undefined}
-                                        sx={{
-                                            width: 52,
-                                            height: 52,
-                                            bgcolor: 'rgba(255,255,255,0.2)',
-                                            color: '#fff',
-                                            fontWeight: 700,
-                                            fontSize: '1.25rem',
-                                            border: '2px solid rgba(255,255,255,0.3)',
-                                        }}
-                                    >
-                                        {selectedClubData.name.charAt(0)}
-                                    </Avatar>
-                                    <Box>
-                                        <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', lineHeight: 1.2 }}>
-                                            {selectedClubData.name}
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                                            <Chip
-                                                label={selectedClubData.faculty}
-                                                size="small"
-                                                sx={{
-                                                    fontSize: '0.65rem',
-                                                    height: 20,
-                                                    bgcolor: 'rgba(255,255,255,0.2)',
-                                                    color: '#fff',
-                                                }}
-                                            />
-                                            <Chip
-                                                label={`${selectedClubData.memberCount} members`}
-                                                size="small"
-                                                sx={{
-                                                    fontSize: '0.65rem',
-                                                    height: 20,
-                                                    bgcolor: 'rgba(255,255,255,0.2)',
-                                                    color: '#fff',
-                                                }}
-                                            />
-                                        </Box>
-                                    </Box>
-                                </Box>
-                            )}
-                        </Box>
-
-                        {/* Description */}
-                        {selectedClubData?.description && (
-                            <Box sx={{ px: 3, py: 2 }}>
-                                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                                    {selectedClubData.description}
-                                </Typography>
-                            </Box>
-                        )}
-
-                        <Divider />
-
-                        {/* Pinned Announcements */}
-                        {pinnedAnnouncements.length > 0 && (
-                            <>
-                                <Box sx={{ px: 3, py: 2.5 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                        <StarIcon sx={{ fontSize: 20, color: 'warning.main' }} />
-                                        <Typography variant="subtitle2" fontWeight={700}>
-                                            Pinned Announcements
-                                        </Typography>
-                                    </Box>
-                                    <Stack spacing={1.5}>
-                                        {pinnedAnnouncements.map((a, i) => (
-                                            <AnnouncementCard key={a.id} announcement={a} index={i} />
-                                        ))}
-                                    </Stack>
-                                </Box>
-                                <Divider />
-                            </>
-                        )}
-
-                        {/* Announcements */}
-                        <Box sx={{ px: 3, py: 2.5 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                <CampaignIcon sx={{ fontSize: 20, color: 'primary.main' }} />
-                                <Typography variant="subtitle2" fontWeight={700}>
-                                    Public Announcements
-                                </Typography>
-                            </Box>
-                            {isAnnouncementLoading ? (
-                                <Stack spacing={1.5}>
-                                    {[0, 1].map((i) => (
-                                        <Skeleton key={i} variant="rounded" height={80} sx={{ borderRadius: 2 }} />
-                                    ))}
-                                </Stack>
-                            ) : announcements.length === 0 ? (
-                                <Typography variant="body2" color="text.disabled" sx={{ py: 2, textAlign: 'center' }}>
-                                    No announcements yet.
-                                </Typography>
-                            ) : (
-                                <Stack spacing={1.5}>
-                                    {announcements.map((a, i) => (
-                                        <AnnouncementCard key={a.id} announcement={a} index={i} />
-                                    ))}
-                                </Stack>
-                            )}
-                        </Box>
-
-                        <Divider />
-
-                        {/* Elections */}
-                        <Box sx={{ px: 3, py: 2.5 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                <HowToVoteIcon sx={{ fontSize: 20, color: 'secondary.main' }} />
-                                <Typography variant="subtitle2" fontWeight={700}>
-                                    Elections
-                                </Typography>
-                            </Box>
-                            {isElectionLoading ? (
-                                <Stack spacing={1.5}>
-                                    {[0, 1].map((i) => (
-                                        <Skeleton key={i} variant="rounded" height={80} sx={{ borderRadius: 2 }} />
-                                    ))}
-                                </Stack>
-                            ) : elections.length === 0 ? (
-                                <Typography variant="body2" color="text.disabled" sx={{ py: 2, textAlign: 'center' }}>
-                                    No elections scheduled.
-                                </Typography>
-                            ) : (
-                                <Stack spacing={1.5}>
-                                    {elections.map((e, i) => (
-                                        <ElectionCard key={e.id} election={e} index={i} />
-                                    ))}
-                                </Stack>
-                            )}
-                        </Box>
-
-                        {/* Join Button at bottom */}
-                        {selectedClubData &&
-                            permissions?.canJoinClub &&
-                            selectedClubData.registrationOpen &&
-                            !memberClubIds.includes(selectedClubData.id) && (
-                                <Box sx={{ p: 3, pt: 0 }}>
-                                    <Button
-                                        fullWidth
-                                        variant="contained"
-                                        size="large"
-                                        onClick={() => handleJoinClick(selectedClubData)}
-                                        sx={{
-                                            textTransform: 'none',
-                                            fontWeight: 700,
-                                            borderRadius: 2.5,
-                                            py: 1.5,
-                                            boxShadow: 'none',
-                                            '&:hover': { boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.3)}` },
-                                        }}
-                                    >
-                                        Join This Club
-                                    </Button>
-                                </Box>
-                            )}
-                    </Box>
-                )}
-            </Drawer>
 
             {/* Join Dialog */}
-            <JoinClubDialog
-                open={joinDialogOpen}
-                onClose={() => { setJoinDialogOpen(false); setSelectedClubForJoin(null); }}
-                onSubmit={handleJoinSubmit}
-                clubName={selectedClubForJoin?.name || ''}
-                isLoading={isMembershipLoading}
-            />
+            <JoinClubDialog open={joinDialogOpen} onClose={() => { setJoinDialogOpen(false); setSelectedClubForJoin(null); }} onSubmit={handleJoinSubmit} clubName={selectedClubForJoin?.name || ''} isLoading={isMembershipLoading} />
 
-            {/* Snackbars */}
-            <Snackbar open={!!error} autoHideDuration={5000} onClose={clearError} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-                <Alert severity="error" onClose={clearError} variant="filled" sx={{ borderRadius: 2 }}>{error}</Alert>
+            {/* Snackbar */}
+            <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+                <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} variant="filled" sx={{ borderRadius: 1 }}>{snackbar.message}</Alert>
             </Snackbar>
-            <Snackbar open={!!successMessage} autoHideDuration={4000} onClose={clearSuccess} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-                <Alert severity="success" onClose={clearSuccess} variant="filled" sx={{ borderRadius: 2 }}>{successMessage}</Alert>
-            </Snackbar>
-        </Box>
+        </MotionBox>
     );
 }
-

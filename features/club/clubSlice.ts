@@ -16,6 +16,7 @@ import {
     ClubSearchParams,
     CreateClubRequest,
     UpdateClubRequest,
+    UpdateAnnouncementRequest,
     JoinClubRequest,
     ChangePositionRequest,
     ActivityLogType,
@@ -24,6 +25,63 @@ import {
 // ============================================================================
 // State Interface
 // ============================================================================
+
+/**
+ * Normalize club response from backend.
+ * Handles field name differences (isRegistrationOpen vs registrationOpen, totalMembers vs memberCount).
+ */
+function normalizeClub(club: ClubResponse): ClubResponse {
+    const c = { ...club };
+    // Backend may send isRegistrationOpen instead of registrationOpen
+    if (c.registrationOpen === undefined && c.isRegistrationOpen !== undefined) {
+        c.registrationOpen = c.isRegistrationOpen;
+    }
+    // Default to false if neither is set
+    if (c.registrationOpen === undefined) {
+        c.registrationOpen = false;
+    }
+    // Backend may send totalMembers instead of memberCount
+    if ((c.memberCount === undefined || c.memberCount === 0) && c.totalMembers !== undefined) {
+        c.memberCount = c.totalMembers;
+    }
+    // Default memberCount
+    if (c.memberCount === undefined) {
+        c.memberCount = 0;
+    }
+    return c;
+}
+
+function normalizeClubs(clubs: ClubResponse[]): ClubResponse[] {
+    return clubs.map(normalizeClub);
+}
+
+/**
+ * Normalize announcement response from backend.
+ * Backend sends `isMembersOnly` (boolean). We derive `isPublic = !isMembersOnly` for backward compat.
+ * Backend may also send `pinned` instead of `isPinned` in some cases.
+ */
+function normalizeAnnouncement(a: AnnouncementResponse): AnnouncementResponse {
+    const n = { ...a } as AnnouncementResponse & { pinned?: boolean; membersOnly?: boolean; public?: boolean };
+
+    // isPinned: handle alternate field names
+    if (n.isPinned === undefined) {
+        n.isPinned = n.pinned ?? false;
+    }
+
+    // isMembersOnly: the backend's canonical field
+    if (n.isMembersOnly === undefined) {
+        n.isMembersOnly = n.membersOnly ?? false;
+    }
+
+    // Derive isPublic from isMembersOnly for backward compatibility
+    n.isPublic = !n.isMembersOnly;
+
+    return n;
+}
+
+function normalizeAnnouncements(list: AnnouncementResponse[]): AnnouncementResponse[] {
+    return list.map(normalizeAnnouncement);
+}
 
 export interface ClubState {
     // Clubs
@@ -418,6 +476,7 @@ export const createAnnouncementAsync = createAsyncThunk(
     async (formData: FormData, { rejectWithValue }) => {
         try {
             const response = await clubServices.createAnnouncement(formData);
+            // response is AnnouncementDetailResponse { success, message, data: AnnouncementResponse }
             return response.data;
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
@@ -428,9 +487,9 @@ export const createAnnouncementAsync = createAsyncThunk(
 
 export const updateAnnouncementAsync = createAsyncThunk(
     'club/updateAnnouncement',
-    async ({ id, formData }: { id: number; formData: FormData }, { rejectWithValue }) => {
+    async ({ id, data, attachment }: { id: number; data: UpdateAnnouncementRequest; attachment?: File }, { rejectWithValue }) => {
         try {
-            const response = await clubServices.updateAnnouncement(id, formData);
+            const response = await clubServices.updateAnnouncement(id, data, attachment);
             return response.data;
         } catch (error: unknown) {
             const err = error as { response?: { data?: { message?: string } } };
@@ -761,7 +820,7 @@ const clubSlice = createSlice({
             })
             .addCase(fetchClubs.fulfilled, (state, action) => {
                 state.isClubLoading = false;
-                state.clubs = action.payload.data.content;
+                state.clubs = normalizeClubs(action.payload.data.content);
                 state.totalClubs = action.payload.data.totalElements;
             })
             .addCase(fetchClubs.rejected, (state, action) => {
@@ -776,7 +835,7 @@ const clubSlice = createSlice({
             })
             .addCase(fetchClubById.fulfilled, (state, action) => {
                 state.isClubLoading = false;
-                state.selectedClub = action.payload;
+                state.selectedClub = normalizeClub(action.payload);
             })
             .addCase(fetchClubById.rejected, (state, action) => {
                 state.isClubLoading = false;
@@ -790,7 +849,7 @@ const clubSlice = createSlice({
             })
             .addCase(searchClubsAsync.fulfilled, (state, action) => {
                 state.isClubLoading = false;
-                state.clubs = action.payload.data.content;
+                state.clubs = normalizeClubs(action.payload.data.content);
                 state.totalClubs = action.payload.data.totalElements;
             })
             .addCase(searchClubsAsync.rejected, (state, action) => {
@@ -805,7 +864,7 @@ const clubSlice = createSlice({
             })
             .addCase(fetchClubsByFaculty.fulfilled, (state, action) => {
                 state.isClubLoading = false;
-                state.clubs = action.payload.data.content;
+                state.clubs = normalizeClubs(action.payload.data.content);
                 state.totalClubs = action.payload.data.totalElements;
             })
             .addCase(fetchClubsByFaculty.rejected, (state, action) => {
@@ -820,7 +879,7 @@ const clubSlice = createSlice({
             })
             .addCase(fetchOpenRegistrationClubs.fulfilled, (state, action) => {
                 state.isClubLoading = false;
-                state.clubs = action.payload.data.content;
+                state.clubs = normalizeClubs(action.payload.data.content);
                 state.totalClubs = action.payload.data.totalElements;
             })
             .addCase(fetchOpenRegistrationClubs.rejected, (state, action) => {
@@ -835,7 +894,7 @@ const clubSlice = createSlice({
             })
             .addCase(createClubAsync.fulfilled, (state, action) => {
                 state.isCreating = false;
-                state.clubs = [action.payload, ...state.clubs];
+                state.clubs = [normalizeClub(action.payload), ...state.clubs];
                 state.totalClubs += 1;
                 state.successMessage = 'Club created successfully';
             })
@@ -851,9 +910,10 @@ const clubSlice = createSlice({
             })
             .addCase(updateClubAsync.fulfilled, (state, action) => {
                 state.isUpdating = false;
-                const idx = state.clubs.findIndex((c) => c.id === action.payload.id);
-                if (idx !== -1) state.clubs[idx] = action.payload;
-                if (state.selectedClub?.id === action.payload.id) state.selectedClub = action.payload;
+                const normalized = normalizeClub(action.payload);
+                const idx = state.clubs.findIndex((c) => c.id === normalized.id);
+                if (idx !== -1) state.clubs[idx] = normalized;
+                if (state.selectedClub?.id === normalized.id) state.selectedClub = normalized;
                 state.successMessage = 'Club updated successfully';
             })
             .addCase(updateClubAsync.rejected, (state, action) => {
@@ -880,9 +940,13 @@ const clubSlice = createSlice({
         builder
             .addCase(toggleRegistrationAsync.fulfilled, (state, action) => {
                 const club = state.clubs.find((c) => c.id === action.payload);
-                if (club) club.registrationOpen = !club.registrationOpen;
+                if (club) {
+                    club.registrationOpen = !club.registrationOpen;
+                    if (club.isRegistrationOpen !== undefined) club.isRegistrationOpen = club.registrationOpen;
+                }
                 if (state.selectedClub?.id === action.payload) {
                     state.selectedClub.registrationOpen = !state.selectedClub.registrationOpen;
+                    if (state.selectedClub.isRegistrationOpen !== undefined) state.selectedClub.isRegistrationOpen = state.selectedClub.registrationOpen;
                 }
                 state.successMessage = 'Registration toggled successfully';
             })
@@ -1025,7 +1089,7 @@ const clubSlice = createSlice({
             })
             .addCase(fetchAnnouncementsByClub.fulfilled, (state, action) => {
                 state.isAnnouncementLoading = false;
-                state.announcements = action.payload.data.content;
+                state.announcements = normalizeAnnouncements(action.payload.data.content);
                 state.totalAnnouncements = action.payload.data.totalElements;
             })
             .addCase(fetchAnnouncementsByClub.rejected, (state, action) => {
@@ -1040,7 +1104,7 @@ const clubSlice = createSlice({
             })
             .addCase(fetchPublicAnnouncements.fulfilled, (state, action) => {
                 state.isAnnouncementLoading = false;
-                state.announcements = action.payload.data.content;
+                state.announcements = normalizeAnnouncements(action.payload.data.content);
                 state.totalAnnouncements = action.payload.data.totalElements;
             })
             .addCase(fetchPublicAnnouncements.rejected, (state, action) => {
@@ -1055,7 +1119,7 @@ const clubSlice = createSlice({
             })
             .addCase(createAnnouncementAsync.fulfilled, (state, action) => {
                 state.isCreating = false;
-                state.announcements = [action.payload, ...state.announcements];
+                state.announcements = [normalizeAnnouncement(action.payload), ...state.announcements];
                 state.totalAnnouncements += 1;
                 state.successMessage = 'Announcement created successfully';
             })
@@ -1071,8 +1135,9 @@ const clubSlice = createSlice({
             })
             .addCase(updateAnnouncementAsync.fulfilled, (state, action) => {
                 state.isUpdating = false;
-                const idx = state.announcements.findIndex((a) => a.id === action.payload.id);
-                if (idx !== -1) state.announcements[idx] = action.payload;
+                const normalized = normalizeAnnouncement(action.payload);
+                const idx = state.announcements.findIndex((a) => a.id === normalized.id);
+                if (idx !== -1) state.announcements[idx] = normalized;
                 state.successMessage = 'Announcement updated successfully';
             })
             .addCase(updateAnnouncementAsync.rejected, (state, action) => {
@@ -1215,7 +1280,11 @@ const clubSlice = createSlice({
             })
             .addCase(fetchClubByCode.fulfilled, (state, action) => {
                 state.isClubLoading = false;
-                state.selectedClub = action.payload;
+                const club = normalizeClub(action.payload);
+                state.selectedClub = club;
+                // Also put the result into the clubs list so search-by-code shows in the list
+                state.clubs = [club];
+                state.totalClubs = 1;
             })
             .addCase(fetchClubByCode.rejected, (state, action) => {
                 state.isClubLoading = false;
@@ -1261,7 +1330,7 @@ const clubSlice = createSlice({
             })
             .addCase(fetchPinnedAnnouncements.fulfilled, (state, action) => {
                 state.isAnnouncementLoading = false;
-                state.pinnedAnnouncements = action.payload.data.content;
+                state.pinnedAnnouncements = normalizeAnnouncements(action.payload.data.content);
                 state.totalPinnedAnnouncements = action.payload.data.totalElements;
             })
             .addCase(fetchPinnedAnnouncements.rejected, (state, action) => {
@@ -1277,7 +1346,7 @@ const clubSlice = createSlice({
             })
             .addCase(searchAnnouncementsAsync.fulfilled, (state, action) => {
                 state.isAnnouncementLoading = false;
-                state.announcements = action.payload.data.content;
+                state.announcements = normalizeAnnouncements(action.payload.data.content);
                 state.totalAnnouncements = action.payload.data.totalElements;
             })
             .addCase(searchAnnouncementsAsync.rejected, (state, action) => {
@@ -1293,7 +1362,7 @@ const clubSlice = createSlice({
             })
             .addCase(fetchAnnouncementById.fulfilled, (state, action) => {
                 state.isAnnouncementLoading = false;
-                state.selectedAnnouncement = action.payload;
+                state.selectedAnnouncement = normalizeAnnouncement(action.payload);
             })
             .addCase(fetchAnnouncementById.rejected, (state, action) => {
                 state.isAnnouncementLoading = false;
@@ -1349,9 +1418,13 @@ const clubSlice = createSlice({
         builder
             .addCase(adminToggleRegistrationAsync.fulfilled, (state, action) => {
                 const club = state.clubs.find((c) => c.id === action.payload);
-                if (club) club.registrationOpen = !club.registrationOpen;
+                if (club) {
+                    club.registrationOpen = !club.registrationOpen;
+                    if (club.isRegistrationOpen !== undefined) club.isRegistrationOpen = club.registrationOpen;
+                }
                 if (state.selectedClub?.id === action.payload) {
                     state.selectedClub.registrationOpen = !state.selectedClub.registrationOpen;
+                    if (state.selectedClub.isRegistrationOpen !== undefined) state.selectedClub.isRegistrationOpen = state.selectedClub.registrationOpen;
                 }
                 state.successMessage = 'Registration toggled successfully (admin)';
             })

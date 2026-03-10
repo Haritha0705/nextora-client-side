@@ -14,11 +14,7 @@ import {
     AvatarGroup,
     Tooltip,
 } from '@mui/material';
-import HowToVoteIcon from '@mui/icons-material/HowToVote';
-import EventIcon from '@mui/icons-material/Event';
 import TimerIcon from '@mui/icons-material/Timer';
-import PersonIcon from '@mui/icons-material/Person';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { motion } from 'framer-motion';
 import type { ElectionResponse, ElectionStatus } from '@/features/club/types';
@@ -84,15 +80,17 @@ export function ElectionCard({ election, onClick, index = 0 }: ElectionCardProps
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, delay: index * 0.05 }}
             sx={{
-                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
                 cursor: onClick ? 'pointer' : 'default',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.25s ease',
                 overflow: 'hidden',
                 '&:hover': onClick
                     ? {
-                          borderColor: alpha(theme.palette.primary.main, 0.3),
-                          bgcolor: alpha(theme.palette.primary.main, 0.02),
+                          borderColor: 'primary.main',
+                          transform: 'translateY(-2px)',
+                          boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
                       }
                     : {},
                 ...(isActive && {
@@ -121,7 +119,7 @@ export function ElectionCard({ election, onClick, index = 0 }: ElectionCardProps
                         sx={{
                             width: 40,
                             height: 40,
-                            borderRadius: 2,
+                            borderRadius: 1,
                             bgcolor: alpha(
                                 config.color === 'default'
                                     ? theme.palette.grey[500]
@@ -182,15 +180,16 @@ export function ElectionCard({ election, onClick, index = 0 }: ElectionCardProps
                             mb: 2,
                             py: 1,
                             px: 1.5,
-                            borderRadius: 2,
+                            borderRadius: 1,
                             bgcolor: alpha(
                                 isActive ? theme.palette.success.main : theme.palette.info.main,
                                 0.06,
                             ),
-                            border: `1px solid ${alpha(
+                            border: '1px solid',
+                            borderColor: alpha(
                                 isActive ? theme.palette.success.main : theme.palette.info.main,
                                 0.12,
-                            )}`,
+                            ),
                         }}
                     >
                         <TimerIcon sx={{ fontSize: 16, color: isActive ? 'success.main' : 'info.main' }} />
@@ -259,7 +258,7 @@ export function ElectionCard({ election, onClick, index = 0 }: ElectionCardProps
                                                 color: 'primary.main',
                                             }}
                                         >
-                                            {c.userName.charAt(0)}
+                                            {c.userName?.charAt(0) || 'U'}
                                         </Avatar>
                                     ))}
                                 </AvatarGroup>

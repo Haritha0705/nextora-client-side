@@ -55,7 +55,7 @@ export function ActivityLogList({ logs, isLoading, emptyMessage = 'No activity l
 
     if (isLoading) {
         return (
-            <Paper elevation={0} sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 3, p: 2 }}>
+            <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                 {Array.from({ length: 5 }).map((_, i) => (
                     <Box key={i} sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'flex-start' }}>
                         <Skeleton variant="circular" width={32} height={32} />
@@ -76,8 +76,9 @@ export function ActivityLogList({ logs, isLoading, emptyMessage = 'No activity l
                     textAlign: 'center',
                     py: 6,
                     px: 3,
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 3,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
                     bgcolor: alpha(theme.palette.primary.main, 0.02),
                 }}
             >
@@ -105,8 +106,9 @@ export function ActivityLogList({ logs, isLoading, emptyMessage = 'No activity l
         <Paper
             elevation={0}
             sx={{
-                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
                 overflow: 'hidden',
             }}
         >
@@ -153,7 +155,7 @@ export function ActivityLogList({ logs, isLoading, emptyMessage = 'No activity l
                             sx={{
                                 width: 32,
                                 height: 32,
-                                borderRadius: 2,
+                                borderRadius: 1,
                                 bgcolor: alpha(config.color, 0.1),
                                 display: 'flex',
                                 alignItems: 'center',

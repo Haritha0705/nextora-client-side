@@ -14,6 +14,7 @@ export type ClubPosition =
     | 'VICE_PRESIDENT'
     | 'SECRETARY'
     | 'TREASURER'
+    | 'TOP_BOARD_MEMBER'
     | 'COMMITTEE_MEMBER'
     | 'MEMBER';
 
@@ -63,6 +64,13 @@ export type ActivityLogType =
 // Club Types
 // ============================================================================
 
+export interface ClubOfficer {
+    id: number;
+    name: string;
+    email: string;
+    profilePictureUrl: string | null;
+}
+
 export interface ClubResponse {
     id: number;
     clubCode: string;
@@ -70,8 +78,34 @@ export interface ClubResponse {
     description: string | null;
     logoUrl: string | null;
     faculty: string;
+
+    // Registration — backend may send either field
     registrationOpen: boolean;
+    isRegistrationOpen?: boolean;
+
+    // Counts
     memberCount: number;
+    totalMembers?: number;
+    activeMembers?: number;
+    totalElections?: number;
+    activeElections?: number;
+
+    // Officers (populated by club-by-id endpoint)
+    president?: ClubOfficer | null;
+    vicePresident?: ClubOfficer | null;
+    secretary?: ClubOfficer | null;
+    treasurer?: ClubOfficer | null;
+    advisor?: ClubOfficer | null;
+
+    // Contact / extra info
+    email?: string | null;
+    contactNumber?: string | null;
+    establishedDate?: string | null;
+    socialMediaLinks?: string | null;
+    maxMembers?: number;
+    isActive?: boolean;
+
+    // Metadata
     createdAt: string;
     updatedAt: string;
 }
@@ -172,15 +206,33 @@ export interface ChangePositionRequest {
 export interface AnnouncementResponse {
     id: number;
     clubId: number;
+    clubCode?: string;
     clubName: string;
     title: string;
     content: string;
-    imageUrl: string | null;
+    priority?: string;
     isPinned: boolean;
-    isPublic: boolean;
+    isMembersOnly: boolean;
+    authorId?: number;
     authorName: string;
+    authorEmail?: string;
+    attachmentUrl: string | null;
+    attachmentName?: string | null;
+    viewCount?: number;
+    imageUrl?: string | null;
     createdAt: string;
     updatedAt: string;
+    isActive?: boolean;
+    /** @deprecated use isMembersOnly instead — kept for backward compat */
+    isPublic?: boolean;
+}
+
+export interface UpdateAnnouncementRequest {
+    title?: string;
+    content?: string;
+    priority?: string;
+    isPinned?: boolean;
+    isMembersOnly?: boolean;
 }
 
 export interface AnnouncementListResponse {

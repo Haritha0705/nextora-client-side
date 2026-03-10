@@ -22,6 +22,7 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import BlockIcon from '@mui/icons-material/Block';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import PersonIcon from '@mui/icons-material/Person';
 import StarIcon from '@mui/icons-material/Star';
 import ShieldIcon from '@mui/icons-material/Shield';
@@ -38,6 +39,12 @@ interface MembershipTableProps {
     onApprove?: (id: number) => void;
     onReject?: (id: number) => void;
     onSuspend?: (id: number) => void;
+    /** Enhanced callbacks that pass the full member object for dialog-based flows */
+    onApproveRequest?: (member: MembershipResponse) => void;
+    onRejectRequest?: (member: MembershipResponse) => void;
+    onSuspendRequest?: (member: MembershipResponse) => void;
+    onChangePosition?: (member: MembershipResponse) => void;
+    onRowClick?: (member: MembershipResponse) => void;
     emptyMessage?: string;
 }
 
@@ -54,6 +61,7 @@ const POSITION_CONFIG: Record<ClubPosition, { label: string; color: string; icon
     VICE_PRESIDENT: { label: 'Vice President', color: '#8B5CF6', icon: <ShieldIcon sx={{ fontSize: 12 }} /> },
     SECRETARY: { label: 'Secretary', color: '#3B82F6' },
     TREASURER: { label: 'Treasurer', color: '#10B981' },
+    TOP_BOARD_MEMBER: { label: 'Top Board', color: '#EC4899' },
     COMMITTEE_MEMBER: { label: 'Committee', color: '#6366F1' },
     MEMBER: { label: 'Member', color: '#6B7280' },
 };
@@ -65,13 +73,18 @@ export function MembershipTable({
     onApprove,
     onReject,
     onSuspend,
+    onApproveRequest,
+    onRejectRequest,
+    onSuspendRequest,
+    onChangePosition,
+    onRowClick,
     emptyMessage = 'No members found.',
 }: MembershipTableProps) {
     const theme = useTheme();
 
     if (isLoading) {
         return (
-            <Paper elevation={0} sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 3, overflow: 'hidden' }}>
+            <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
                 {Array.from({ length: 5 }).map((_, i) => (
                     <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}` }}>
                         <Skeleton variant="circular" width={36} height={36} />
@@ -94,8 +107,9 @@ export function MembershipTable({
                     textAlign: 'center',
                     py: 6,
                     px: 3,
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 3,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
                     bgcolor: alpha(theme.palette.primary.main, 0.02),
                 }}
             >
@@ -126,11 +140,12 @@ export function MembershipTable({
             component={Paper}
             elevation={0}
             sx={{
-                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
                 overflow: 'hidden',
                 '& .MuiTableHead-root': {
-                    bgcolor: alpha(theme.palette.primary.main, 0.03),
+                    bgcolor: alpha(theme.palette.primary.main, 0.04),
                 },
                 '& .MuiTableCell-head': {
                     fontWeight: 600,
@@ -159,8 +174,8 @@ export function MembershipTable({
                 </TableHead>
                 <TableBody>
                     {members.map((member, index) => {
-                        const posConfig = POSITION_CONFIG[member.position] || { label: member.position, color: '#6B7280' };
-                        const statusConfig = STATUS_CONFIG[member.status];
+                        const posConfig = (member.position && POSITION_CONFIG[member.position]) || { label: member.position || 'Member', color: '#6B7280' };
+                        const statusConfig = (member.status && STATUS_CONFIG[member.status]) || { color: 'default' as const, label: member.status || 'Unknown' };
                         return (
                             <MotionTableRow
                                 key={member.id}
@@ -168,9 +183,11 @@ export function MembershipTable({
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: index * 0.03 }}
                                 hover
+                                onClick={() => onRowClick?.(member)}
                                 sx={{
                                     '&:last-child td': { borderBottom: 0 },
                                     '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
+                                    cursor: onRowClick ? 'pointer' : 'default',
                                 }}
                             >
                                 <TableCell>
@@ -241,7 +258,7 @@ export function MembershipTable({
                                                     <Tooltip title="Approve" arrow>
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() => onApprove?.(member.id)}
+                                                            onClick={() => onApproveRequest ? onApproveRequest(member) : onApprove?.(member.id)}
                                                             sx={{
                                                                 color: 'success.main',
                                                                 bgcolor: alpha(theme.palette.success.main, 0.08),
@@ -254,7 +271,7 @@ export function MembershipTable({
                                                     <Tooltip title="Reject" arrow>
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() => onReject?.(member.id)}
+                                                            onClick={() => onRejectRequest ? onRejectRequest(member) : onReject?.(member.id)}
                                                             sx={{
                                                                 color: 'error.main',
                                                                 bgcolor: alpha(theme.palette.error.main, 0.08),
@@ -267,19 +284,36 @@ export function MembershipTable({
                                                 </>
                                             )}
                                             {member.status === 'ACTIVE' && (
-                                                <Tooltip title="Suspend" arrow>
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => onSuspend?.(member.id)}
-                                                        sx={{
-                                                            color: 'warning.main',
-                                                            bgcolor: alpha(theme.palette.warning.main, 0.08),
-                                                            '&:hover': { bgcolor: alpha(theme.palette.warning.main, 0.15) },
-                                                        }}
-                                                    >
-                                                        <BlockIcon sx={{ fontSize: 18 }} />
-                                                    </IconButton>
-                                                </Tooltip>
+                                                <>
+                                                    {onChangePosition && (
+                                                        <Tooltip title="Change Position" arrow>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => onChangePosition(member)}
+                                                                sx={{
+                                                                    color: 'info.main',
+                                                                    bgcolor: alpha(theme.palette.info.main, 0.08),
+                                                                    '&:hover': { bgcolor: alpha(theme.palette.info.main, 0.15) },
+                                                                }}
+                                                            >
+                                                                <SwapHorizIcon sx={{ fontSize: 18 }} />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    )}
+                                                    <Tooltip title="Suspend" arrow>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => onSuspendRequest ? onSuspendRequest(member) : onSuspend?.(member.id)}
+                                                            sx={{
+                                                                color: 'warning.main',
+                                                                bgcolor: alpha(theme.palette.warning.main, 0.08),
+                                                                '&:hover': { bgcolor: alpha(theme.palette.warning.main, 0.15) },
+                                                            }}
+                                                        >
+                                                            <BlockIcon sx={{ fontSize: 18 }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </>
                                             )}
                                         </Box>
                                     </TableCell>

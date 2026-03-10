@@ -109,6 +109,7 @@ import type {
     ClubSearchParams,
     CreateClubRequest,
     UpdateClubRequest,
+    UpdateAnnouncementRequest,
     JoinClubRequest,
     ChangePositionRequest,
     ActivityLogType,
@@ -283,7 +284,7 @@ export function useClub() {
         [dispatch],
     );
     const updateAnnouncement = useCallback(
-        (id: number, formData: FormData) => dispatch(updateAnnouncementAsync({ id, formData })),
+        (id: number, data: UpdateAnnouncementRequest, attachment?: File) => dispatch(updateAnnouncementAsync({ id, data, attachment })),
         [dispatch],
     );
     const removeAnnouncement = useCallback((id: number) => dispatch(deleteAnnouncementAsync(id)), [dispatch]);

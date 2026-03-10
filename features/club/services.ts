@@ -19,6 +19,7 @@ import {
     // Announcements
     AnnouncementListResponse,
     AnnouncementDetailResponse,
+    UpdateAnnouncementRequest,
     // Elections
     ElectionListResponse,
     ElectionDetailResponse,
@@ -287,9 +288,7 @@ export async function suspendMembership(membershipId: number, reason?: string): 
 
 /** Create announcement (form-data) */
 export async function createAnnouncement(formData: FormData): Promise<AnnouncementDetailResponse> {
-    const response = await apiClient.post<AnnouncementDetailResponse>(CLUB_ENDPOINTS.ANNOUNCEMENTS_CREATE, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await apiClient.post<AnnouncementDetailResponse>(CLUB_ENDPOINTS.ANNOUNCEMENTS_CREATE, formData);
     return response.data;
 }
 
@@ -336,8 +335,16 @@ export async function getAnnouncementById(id: number): Promise<AnnouncementDetai
     return response.data;
 }
 
-/** Update announcement (form-data) */
-export async function updateAnnouncement(id: number, formData: FormData): Promise<AnnouncementDetailResponse> {
+/** Update announcement (multipart/form-data — same pattern as updateClub) */
+export async function updateAnnouncement(id: number, data: UpdateAnnouncementRequest, attachment?: File): Promise<AnnouncementDetailResponse> {
+    const formData = new FormData();
+    if (data.title) formData.append('title', data.title);
+    if (data.content) formData.append('content', data.content);
+    if (data.priority) formData.append('priority', data.priority);
+    if (data.isPinned !== undefined) formData.append('isPinned', String(data.isPinned));
+    if (data.isMembersOnly !== undefined) formData.append('isMembersOnly', String(data.isMembersOnly));
+    if (attachment) formData.append('attachment', attachment);
+
     const response = await apiClient.put<AnnouncementDetailResponse>(CLUB_ENDPOINTS.ANNOUNCEMENTS_BY_ID(id), formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });

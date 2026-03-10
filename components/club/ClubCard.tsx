@@ -14,15 +14,12 @@ import {
     useTheme,
     Tooltip,
     AvatarGroup,
-    IconButton,
 } from '@mui/material';
-import GroupsIcon from '@mui/icons-material/Groups';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SettingsIcon from '@mui/icons-material/Settings';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import { motion } from 'framer-motion';
 import type { ClubResponse } from '@/features/club/types';
 
@@ -51,17 +48,6 @@ export function ClubCard({
 }: ClubCardProps) {
     const theme = useTheme();
 
-    const gradientColors = [
-        `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.85)} 0%, ${alpha('#6366F1', 0.7)} 100%)`,
-        `linear-gradient(135deg, ${alpha('#10B981', 0.85)} 0%, ${alpha('#06B6D4', 0.7)} 100%)`,
-        `linear-gradient(135deg, ${alpha('#F59E0B', 0.85)} 0%, ${alpha('#EF4444', 0.7)} 100%)`,
-        `linear-gradient(135deg, ${alpha('#8B5CF6', 0.85)} 0%, ${alpha('#EC4899', 0.7)} 100%)`,
-        `linear-gradient(135deg, ${alpha('#3B82F6', 0.85)} 0%, ${alpha('#10B981', 0.7)} 100%)`,
-        `linear-gradient(135deg, ${alpha('#EC4899', 0.85)} 0%, ${alpha('#F59E0B', 0.7)} 100%)`,
-    ];
-
-    const gradient = gradientColors[club.id % gradientColors.length];
-
     return (
         <MotionCard
             elevation={0}
@@ -74,16 +60,19 @@ export function ClubCard({
             }}
             sx={{
                 cursor: 'pointer',
-                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
                 overflow: 'hidden',
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
                 position: 'relative',
-                transition: 'border-color 0.3s ease',
+                transition: 'all 0.25s ease',
                 '&:hover': {
-                    borderColor: alpha(theme.palette.primary.main, 0.3),
+                    borderColor: 'primary.main',
+                    transform: 'translateY(-3px)',
+                    boxShadow: `0 12px 32px ${alpha(theme.palette.primary.main, 0.15)}`,
                     '& .club-arrow': {
                         opacity: 1,
                         transform: 'translateX(0)',
@@ -92,56 +81,28 @@ export function ClubCard({
             }}
             onClick={() => onView(club)}
         >
+            {/* Accent bar */}
+            <Box sx={{ height: 4, background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${alpha(theme.palette.primary.main, 0.4)})` }} />
+
             {/* Header gradient with pattern */}
             <Box
                 sx={{
-                    height: 100,
-                    background: gradient,
+                    height: 96,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 50%, #6366F1 100%)`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     position: 'relative',
                     overflow: 'hidden',
-                    '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 60%)',
-                    },
-                    '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        bottom: -1,
-                        left: 0,
-                        right: 0,
-                        height: 20,
-                        background: `linear-gradient(to top, ${theme.palette.background.paper}, transparent)`,
-                    },
                 }}
             >
-                {/* Bookmark icon */}
-                <IconButton
-                    size="small"
-                    sx={{
-                        position: 'absolute',
-                        top: 8,
-                        right: 8,
-                        color: 'rgba(255,255,255,0.7)',
-                        '&:hover': { color: 'rgba(255,255,255,1)', bgcolor: 'rgba(255,255,255,0.1)' },
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <BookmarkBorderIcon fontSize="small" />
-                </IconButton>
+                <Box sx={{ position: 'absolute', inset: 0, backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)`, backgroundSize: '20px 20px' }} />
 
                 {/* Registration status badge */}
                 {club.registrationOpen && (
                     <Chip
                         size="small"
-                        icon={<FiberManualRecordIcon sx={{ fontSize: '8px !important', animation: 'pulse 2s infinite' }} />}
+                        icon={<FiberManualRecordIcon sx={{ fontSize: '8px !important', animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.3 } } }} />}
                         label="Open"
                         sx={{
                             position: 'absolute',
@@ -153,10 +114,6 @@ export function ClubCard({
                             height: 24,
                             backdropFilter: 'blur(4px)',
                             '& .MuiChip-icon': { color: '#4ade80' },
-                            '@keyframes pulse': {
-                                '0%, 100%': { opacity: 1 },
-                                '50%': { opacity: 0.4 },
-                            },
                         }}
                     />
                 )}
@@ -164,13 +121,14 @@ export function ClubCard({
                 <Avatar
                     src={club.logoUrl || undefined}
                     sx={{
-                        width: 64,
-                        height: 64,
+                        width: 56,
+                        height: 56,
                         bgcolor: alpha(theme.palette.background.paper, 0.95),
                         color: 'primary.main',
-                        fontSize: '1.75rem',
+                        fontSize: '1.5rem',
                         fontWeight: 700,
-                        border: `3px solid ${theme.palette.background.paper}`,
+                        border: '2px solid',
+                        borderColor: alpha(theme.palette.primary.main, 0.2),
                         boxShadow: `0 4px 14px ${alpha('#000', 0.2)}`,
                         zIndex: 1,
                     }}
@@ -179,7 +137,7 @@ export function ClubCard({
                 </Avatar>
             </Box>
 
-            <CardContent sx={{ flex: 1, pt: 1.5, pb: 1 }}>
+            <CardContent sx={{ flex: 1, pt: 2, pb: 1, px: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                     <Typography variant="h6" noWrap sx={{ fontWeight: 700, fontSize: '1rem', flex: 1 }}>
                         {club.name}
@@ -205,7 +163,7 @@ export function ClubCard({
                         WebkitLineClamp: 2,
                         overflow: 'hidden',
                         minHeight: 40,
-                        lineHeight: 1.5,
+                        lineHeight: 1.6,
                         fontSize: '0.8rem',
                     }}
                 >
@@ -217,12 +175,13 @@ export function ClubCard({
                         size="small"
                         label={club.faculty}
                         sx={{
-                            fontSize: '0.68rem',
+                            fontSize: '0.7rem',
                             height: 24,
-                            bgcolor: alpha(theme.palette.primary.main, 0.08),
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
                             color: theme.palette.primary.main,
-                            fontWeight: 500,
-                            border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
+                            fontWeight: 600,
+                            border: '1px solid',
+                            borderColor: alpha(theme.palette.primary.main, 0.15),
                         }}
                     />
                 </Box>
@@ -234,7 +193,8 @@ export function ClubCard({
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         pt: 1.5,
-                        borderTop: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+                        borderTop: '1px solid',
+                        borderColor: 'divider',
                     }}
                 >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -249,7 +209,7 @@ export function ClubCard({
                                 },
                             }}
                         >
-                            {Array.from({ length: Math.min(club.memberCount, 3) }).map((_, i) => (
+                            {Array.from({ length: Math.min(club.memberCount || 0, 3) }).map((_, i) => (
                                 <Avatar
                                     key={i}
                                     sx={{
@@ -262,7 +222,7 @@ export function ClubCard({
                             ))}
                         </AvatarGroup>
                         <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                            {club.memberCount} member{club.memberCount !== 1 ? 's' : ''}
+                            {club.memberCount || 0} member{(club.memberCount || 0) !== 1 ? 's' : ''}
                         </Typography>
                     </Box>
 
@@ -281,7 +241,7 @@ export function ClubCard({
                 </Box>
             </CardContent>
 
-            <CardActions sx={{ px: 2, pb: 2, pt: 0, gap: 1 }}>
+            <CardActions sx={{ px: 3, pb: 2, pt: 0, gap: 1 }}>
                 {canJoin && club.registrationOpen && !isMember && (
                     <Button
                         size="small"
@@ -292,13 +252,13 @@ export function ClubCard({
                             onJoin?.(club);
                         }}
                         sx={{
-                            borderRadius: 2,
+                            borderRadius: 1,
                             textTransform: 'none',
-                            fontWeight: 600,
+                            fontWeight: 700,
                             fontSize: '0.78rem',
                             px: 2,
-                            boxShadow: 'none',
-                            '&:hover': { boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}` },
+                            boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}`,
+                            '&:hover': { boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.5)}` },
                         }}
                     >
                         Join Club
@@ -314,11 +274,14 @@ export function ClubCard({
                             onManage?.(club);
                         }}
                         sx={{
-                            borderRadius: 2,
+                            borderRadius: 1,
                             textTransform: 'none',
                             fontWeight: 600,
                             fontSize: '0.78rem',
                             px: 2,
+                            borderColor: 'divider',
+                            color: 'text.secondary',
+                            '&:hover': { borderColor: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.05) },
                         }}
                     >
                         Manage

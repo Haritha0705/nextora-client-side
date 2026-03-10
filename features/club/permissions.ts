@@ -79,6 +79,7 @@ export const OFFICER_POSITIONS = [
     'VICE_PRESIDENT',
     'SECRETARY',
     'TREASURER',
+    'TOP_BOARD_MEMBER',
     'COMMITTEE_MEMBER',
 ] as const;
 

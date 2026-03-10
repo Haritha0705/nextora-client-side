@@ -8,18 +8,19 @@ import {
     Box,
     Chip,
     Avatar,
+    IconButton,
+    Stack,
     alpha,
     useTheme,
-    IconButton,
     Tooltip,
-    Divider,
 } from '@mui/material';
 import PushPinIcon from '@mui/icons-material/PushPin';
+import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import PublicIcon from '@mui/icons-material/Public';
 import LockIcon from '@mui/icons-material/Lock';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import ImageIcon from '@mui/icons-material/Image';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { motion } from 'framer-motion';
 import type { AnnouncementResponse } from '@/features/club/types';
 
@@ -28,11 +29,20 @@ const MotionCard = motion.create(Card);
 interface AnnouncementCardProps {
     announcement: AnnouncementResponse;
     onClick?: (announcement: AnnouncementResponse) => void;
+    onEdit?: (announcement: AnnouncementResponse) => void;
+    onDelete?: (announcement: AnnouncementResponse) => void;
+    onTogglePin?: (announcement: AnnouncementResponse) => void;
+    showActions?: boolean;
     index?: number;
 }
 
-export function AnnouncementCard({ announcement, onClick, index = 0 }: AnnouncementCardProps) {
+export function AnnouncementCard({ announcement, onClick, onEdit, onDelete, onTogglePin, showActions = false, index = 0 }: AnnouncementCardProps) {
     const theme = useTheme();
+
+    // Backend sends `isMembersOnly`. Derive `isPublic` = !isMembersOnly.
+    const isMembersOnly = announcement.isMembersOnly ?? false;
+    const isPublic = announcement.isPublic ?? !isMembersOnly;
+    const isPinned = announcement.isPinned ?? false;
 
     const timeAgo = (date: string) => {
         const now = new Date();
@@ -52,21 +62,24 @@ export function AnnouncementCard({ announcement, onClick, index = 0 }: Announcem
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.3, delay: index * 0.05 }}
             sx={{
-                border: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
-                borderRadius: 3,
+                border: '1px solid',
+                borderColor: isPinned ? alpha('#F59E0B', 0.35) : 'divider',
+                borderRadius: 1,
                 cursor: onClick ? 'pointer' : 'default',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.25s ease',
                 overflow: 'hidden',
+                position: 'relative',
                 '&:hover': onClick
                     ? {
-                          borderColor: alpha(theme.palette.primary.main, 0.3),
-                          bgcolor: alpha(theme.palette.primary.main, 0.02),
-                          transform: 'translateX(4px)',
+                          borderColor: 'primary.main',
+                          transform: 'translateY(-2px)',
+                          boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
                       }
                     : {},
-                ...(announcement.isPinned && {
-                    borderLeft: `4px solid ${theme.palette.warning.main}`,
-                    bgcolor: alpha(theme.palette.warning.main, 0.02),
+                ...(isPinned && {
+                    borderLeft: `4px solid #F59E0B`,
+                    bgcolor: alpha('#F59E0B', 0.03),
+                    boxShadow: `0 2px 12px ${alpha('#F59E0B', 0.08)}`,
                 }),
             }}
             onClick={() => onClick?.(announcement)}
@@ -74,22 +87,23 @@ export function AnnouncementCard({ announcement, onClick, index = 0 }: Announcem
             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
                 {/* Top row: pin + title + visibility */}
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
-                    {announcement.isPinned && (
-                        <Box
+                    {isPinned && (
+                        <Chip
+                            icon={<PushPinIcon sx={{ fontSize: '13px !important', transform: 'rotate(45deg)' }} />}
+                            label="Pinned"
+                            size="small"
                             sx={{
-                                width: 28,
-                                height: 28,
-                                borderRadius: 1.5,
-                                bgcolor: alpha(theme.palette.warning.main, 0.1),
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                                height: 24,
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                bgcolor: alpha('#F59E0B', 0.1),
+                                color: '#D97706',
+                                border: `1px solid ${alpha('#F59E0B', 0.25)}`,
                                 flexShrink: 0,
                                 mt: 0.25,
+                                '& .MuiChip-icon': { color: '#D97706' },
                             }}
-                        >
-                            <PushPinIcon sx={{ fontSize: 14, color: 'warning.main', transform: 'rotate(45deg)' }} />
-                        </Box>
+                        />
                     )}
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.25, lineHeight: 1.3 }}>
@@ -100,24 +114,24 @@ export function AnnouncementCard({ announcement, onClick, index = 0 }: Announcem
                         </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
-                        <Tooltip title={announcement.isPublic ? 'Public announcement' : 'Members only'}>
+                        <Tooltip title={isPublic ? 'Public announcement' : 'Members only'}>
                             <Chip
                                 icon={
-                                    announcement.isPublic
+                                    isPublic
                                         ? <PublicIcon sx={{ fontSize: '14px !important' }} />
                                         : <LockIcon sx={{ fontSize: '14px !important' }} />
                                 }
-                                label={announcement.isPublic ? 'Public' : 'Members'}
+                                label={isPublic ? 'Public' : 'Members'}
                                 size="small"
                                 variant="outlined"
                                 sx={{
                                     fontSize: '0.68rem',
                                     height: 24,
                                     borderColor: alpha(
-                                        announcement.isPublic ? theme.palette.success.main : theme.palette.info.main,
+                                        isPublic ? theme.palette.success.main : theme.palette.info.main,
                                         0.3,
                                     ),
-                                    color: announcement.isPublic ? theme.palette.success.main : theme.palette.info.main,
+                                    color: isPublic ? theme.palette.success.main : theme.palette.info.main,
                                 }}
                             />
                         </Tooltip>
@@ -142,7 +156,7 @@ export function AnnouncementCard({ announcement, onClick, index = 0 }: Announcem
                 </Typography>
 
                 {/* Image indicator */}
-                {announcement.imageUrl && (
+                {(announcement.imageUrl || announcement.attachmentUrl) && (
                     <Box
                         sx={{
                             mb: 2,
@@ -158,7 +172,7 @@ export function AnnouncementCard({ announcement, onClick, index = 0 }: Announcem
                     >
                         <Box
                             component="img"
-                            src={announcement.imageUrl}
+                            src={announcement.imageUrl || announcement.attachmentUrl || ''}
                             alt=""
                             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -175,7 +189,8 @@ export function AnnouncementCard({ announcement, onClick, index = 0 }: Announcem
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         pt: 1.5,
-                        borderTop: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+                        borderTop: '1px solid',
+                        borderColor: 'divider',
                     }}
                 >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -203,6 +218,31 @@ export function AnnouncementCard({ announcement, onClick, index = 0 }: Announcem
                             {timeAgo(announcement.createdAt)}
                         </Typography>
                     </Box>
+                    {showActions && (
+                        <Stack direction="row" spacing={0.5}>
+                            {onTogglePin && (
+                                <Tooltip title={isPinned ? 'Unpin' : 'Pin'}>
+                                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); onTogglePin(announcement); }} sx={{ color: isPinned ? 'warning.main' : 'text.disabled' }}>
+                                        {isPinned ? <PushPinIcon sx={{ fontSize: 16 }} /> : <PushPinOutlinedIcon sx={{ fontSize: 16 }} />}
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                            {onEdit && (
+                                <Tooltip title="Edit">
+                                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); onEdit(announcement); }} sx={{ color: 'info.main' }}>
+                                        <EditIcon sx={{ fontSize: 16 }} />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                            {onDelete && (
+                                <Tooltip title="Delete">
+                                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(announcement); }} sx={{ color: 'error.main' }}>
+                                        <DeleteIcon sx={{ fontSize: 16 }} />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                        </Stack>
+                    )}
                 </Box>
             </CardContent>
         </MotionCard>

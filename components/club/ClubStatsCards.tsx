@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Grid, Card, CardContent, Typography, Box, alpha, useTheme, Skeleton } from '@mui/material';
+ import { Grid, Card, CardContent, Typography, Box, Stack, alpha, useTheme, Skeleton } from '@mui/material';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PersonIcon from '@mui/icons-material/Person';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
@@ -71,10 +71,14 @@ export function ClubStatsCards({ stats, isLoading }: ClubStatsCardsProps) {
             <Grid container spacing={2}>
                 {Array.from({ length: 6 }).map((_, i) => (
                     <Grid size={{ xs: 6, sm: 4, md: 2 }} key={i}>
-                        <Card elevation={0} sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 3, p: 2 }}>
-                            <Skeleton variant="circular" width={40} height={40} />
-                            <Skeleton variant="text" width="60%" height={32} sx={{ mt: 1.5 }} />
-                            <Skeleton variant="text" width="80%" height={18} />
+                        <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                            <Stack direction="row" alignItems="center" spacing={1.5}>
+                                <Skeleton variant="rounded" width={44} height={44} sx={{ borderRadius: 1 }} />
+                                <Box>
+                                    <Skeleton variant="text" width={40} height={32} />
+                                    <Skeleton variant="text" width={70} height={16} />
+                                </Box>
+                            </Stack>
                         </Card>
                     </Grid>
                 ))}
@@ -92,53 +96,45 @@ export function ClubStatsCards({ stats, isLoading }: ClubStatsCardsProps) {
                             elevation={0}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3, delay: index * 0.06 }}
-                            whileHover={{ y: -3, boxShadow: `0 8px 24px ${alpha(card.color, 0.12)}` }}
+                            transition={{ duration: 0.35, delay: index * 0.06 }}
                             sx={{
-                                border: `1px solid ${alpha(card.color, 0.12)}`,
-                                borderRadius: 3,
-                                overflow: 'hidden',
-                                position: 'relative',
-                                '&::before': {
-                                    content: '""',
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    height: 3,
-                                    background: `linear-gradient(90deg, ${card.color}, ${alpha(card.color, 0.3)})`,
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                height: '100%',
+                                transition: 'all 0.2s',
+                                '&:hover': {
+                                    borderColor: card.color,
+                                    boxShadow: `0 4px 16px ${alpha(card.color, 0.15)}`,
                                 },
                             }}
                         >
                             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                                <Box
-                                    sx={{
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 2,
-                                        bgcolor: card.bgColor,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        mb: 1.5,
-                                    }}
-                                >
-                                    <Icon sx={{ fontSize: 22, color: card.color }} />
-                                </Box>
-                                <Typography
-                                    variant="h5"
-                                    fontWeight={700}
-                                    sx={{ mb: 0.25, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
-                                >
-                                    {String(card.value)}
-                                </Typography>
-                                <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ fontSize: { xs: '0.65rem', sm: '0.72rem' }, fontWeight: 500 }}
-                                >
-                                    {card.title}
-                                </Typography>
+                                <Stack direction="row" alignItems="center" spacing={1.5}>
+                                    <Box
+                                        sx={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            bgcolor: card.bgColor,
+                                            border: '1px solid',
+                                            borderColor: alpha(card.color, 0.15),
+                                        }}
+                                    >
+                                        <Icon sx={{ fontSize: 22, color: card.color }} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="h5" fontWeight={700} sx={{ lineHeight: 1.1 }}>
+                                            {String(card.value)}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
+                                            {card.title}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
                             </CardContent>
                         </MotionCard>
                     </Grid>
