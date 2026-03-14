@@ -7,3 +7,5 @@ export * from './dashboard';
 export * from './push-notifications';
 export * from './kuppi';
 export * from './club';
+// Election module has overlapping names with club (ElectionResponse, CandidateResponse, etc.)
+// Import directly from '@/features/election' instead

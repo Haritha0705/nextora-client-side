@@ -13,6 +13,7 @@ import superAdminReducer from '@/features/super-admin/superAdminSlice';
 import adminUserManagementReducer from '@/features/super-admin/adminUserManagementSlice';
 import kuppiReducer from '@/features/kuppi/kuppiSlice';
 import clubReducer from '@/features/club/clubSlice';
+import electionReducer from '@/features/election/electionSlice';
 import {
     persistStore,
     persistReducer,
@@ -38,6 +39,7 @@ const rootReducer = combineReducers({
     adminUserManagement: adminUserManagementReducer,
     kuppi: kuppiReducer,
     club: clubReducer,
+    election: electionReducer,
 });
 
 // ============================================================================
