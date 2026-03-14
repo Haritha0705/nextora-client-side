@@ -14,6 +14,7 @@ import MapIcon from '@mui/icons-material/Map';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 import PendingIcon from '@mui/icons-material/Pending';
+import HowToVoteIcon from '@mui/icons-material/HowToVote';
 import { WelcomeBanner, StatsCard, QuickAccessGrid } from '@/components/widgets';
 import { useAppSelector } from '@/store';
 import { selectUser } from '@/features/auth/authSlice';
@@ -27,6 +28,7 @@ const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 }
 const QUICK_ACTIONS: QuickAction[] = [
     { id: 'tasks', icon: <AssessmentIcon sx={{ fontSize: 26 }} />, label: 'My Tasks', description: 'View assigned tasks', count: 8, path: '/non-academic/tasks', color: '#2563EB' },
     { id: 'inventory', icon: <StorageIcon sx={{ fontSize: 26 }} />, label: 'Inventory', description: 'Manage supplies', count: 15, path: '/non-academic/inventory', color: '#7C3AED' },
+    { id: 'elections', icon: <HowToVoteIcon sx={{ fontSize: 26 }} />, label: 'Elections', description: 'Vote in elections', path: '/non-academic/elections', color: '#10B981' },
     { id: 'maintenance', icon: <BuildIcon sx={{ fontSize: 26 }} />, label: 'Maintenance', description: 'Repair requests', count: 5, path: '/non-academic/maintenance', color: '#DC2626' },
     { id: 'requests', icon: <MessageIcon sx={{ fontSize: 26 }} />, label: 'Service Requests', description: 'Pending requests', count: 12, path: '/non-academic/requests', color: '#F59E0B' },
     { id: 'facilities', icon: <ApartmentIcon sx={{ fontSize: 26 }} />, label: 'Facilities', description: 'Room bookings', path: '/non-academic/facilities', color: '#059669' },
