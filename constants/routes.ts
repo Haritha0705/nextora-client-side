@@ -22,6 +22,7 @@ export const ROUTES = {
         MAPS: '/student/maps',
         MEETINGS: '/student/meetings',
         SRU: '/student/sru',
+        INTRANET: '/student/intranet',
     },
 
     // Academic Staff routes
