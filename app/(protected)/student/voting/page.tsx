@@ -1,9 +1,11 @@
+
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box, Typography, TextField, InputAdornment, Tabs, Tab, Chip, Stack, alpha,
-    useTheme, Paper, IconButton, Card, CardContent, Grid, Avatar, Tooltip,
+    useTheme, Paper, IconButton, Card, CardContent, Grid, Tooltip,
     Snackbar, Alert, Skeleton, LinearProgress, Badge,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -17,6 +19,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CancelIcon from '@mui/icons-material/Cancel';
+import ArchiveIcon from '@mui/icons-material/Archive';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -36,27 +39,59 @@ const itemVariants = {
 
 const STATUS_CONFIG: Record<ElectionStatus, { label: string; color: string; icon: React.ReactNode }> = {
     DRAFT: { label: 'Draft', color: '#6B7280', icon: <BallotIcon sx={{ fontSize: 14 }} /> },
-    NOMINATIONS_OPEN: { label: 'Nominations Open', color: '#F59E0B', icon: <AssignmentIndIcon sx={{ fontSize: 14 }} /> },
-    NOMINATIONS_CLOSED: { label: 'Nominations Closed', color: '#8B5CF6', icon: <AssignmentIndIcon sx={{ fontSize: 14 }} /> },
+    NOMINATION_OPEN: { label: 'Nominations Open', color: '#F59E0B', icon: <AssignmentIndIcon sx={{ fontSize: 14 }} /> },
+    NOMINATION_CLOSED: { label: 'Nominations Closed', color: '#8B5CF6', icon: <AssignmentIndIcon sx={{ fontSize: 14 }} /> },
     VOTING_OPEN: { label: 'Voting Open', color: '#10B981', icon: <HowToVoteIcon sx={{ fontSize: 14 }} /> },
     VOTING_CLOSED: { label: 'Voting Closed', color: '#3B82F6', icon: <HowToVoteIcon sx={{ fontSize: 14 }} /> },
     RESULTS_PUBLISHED: { label: 'Results Published', color: '#EC4899', icon: <EmojiEventsIcon sx={{ fontSize: 14 }} /> },
     CANCELLED: { label: 'Cancelled', color: '#EF4444', icon: <CancelIcon sx={{ fontSize: 14 }} /> },
+    ARCHIVED: { label: 'Archived', color: '#9CA3AF', icon: <ArchiveIcon sx={{ fontSize: 14 }} /> },
 };
 
 const TYPE_COLORS: Record<string, string> = {
-    PRESIDENTIAL: '#F59E0B',
+    PRESIDENT: '#F59E0B',
+    VICE_PRESIDENT: '#D97706',
+    SECRETARY: '#8B5CF6',
+    TREASURER: '#10B981',
     GENERAL: '#3B82F6',
-    BY_ELECTION: '#8B5CF6',
-    REFERENDUM: '#EC4899',
+    POLL: '#EC4899',
+    REFERENDUM: '#EF4444',
 };
 
+function formatElectionDate(election: ElectionResponse): string {
+    const start = new Date(election.votingStartTime);
+    return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getTimeRemaining(election: ElectionResponse): string | null {
+    const now = new Date();
+    if (election.status === 'VOTING_OPEN') {
+        const end = new Date(election.votingEndTime);
+        const diff = end.getTime() - now.getTime();
+        if (diff > 0) {
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            if (days > 0) return `${days}d ${hours}h remaining`;
+            return `${hours}h remaining`;
+        }
+    }
+    if (election.status === 'NOMINATION_OPEN') {
+        const end = new Date(election.nominationEndTime);
+        const diff = end.getTime() - now.getTime();
+        if (diff > 0) {
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            if (days > 0) return `${days}d ${hours}h left to nominate`;
+            return `${hours}h left to nominate`;
+        }
+    }
+    return null;
+}
+
 function ElectionCard({ election, onClick }: { election: ElectionResponse; onClick: () => void }) {
-    const theme = useTheme();
     const statusConf = STATUS_CONFIG[election.status] || STATUS_CONFIG.DRAFT;
     const typeColor = TYPE_COLORS[election.electionType] || '#6B7280';
-    const electionDate = new Date(election.electionDate);
-    const isPast = electionDate < new Date();
+    const timeRemaining = getTimeRemaining(election);
 
     return (
         <Paper
@@ -113,19 +148,15 @@ function ElectionCard({ election, onClick }: { election: ElectionResponse; onCli
                     />
                     <Chip
                         icon={<EventIcon sx={{ fontSize: '14px !important' }} />}
-                        label={electionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        label={formatElectionDate(election)}
                         size="small"
                         sx={{
                             fontSize: '0.7rem', height: 22,
-                            bgcolor: alpha(isPast ? '#6B7280' : '#3B82F6', 0.08),
-                            color: isPast ? 'text.secondary' : '#3B82F6',
+                            bgcolor: alpha('#3B82F6', 0.08),
+                            color: '#3B82F6',
                             '& .MuiChip-icon': { color: 'inherit' },
                         }}
                     />
-                    {election.electionYear && (
-                        <Chip label={election.electionYear.toString()} size="small"
-                            sx={{ fontSize: '0.7rem', height: 22, bgcolor: alpha(theme.palette.text.primary, 0.06) }} />
-                    )}
                 </Stack>
 
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ pt: 0.5 }}>
@@ -137,11 +168,11 @@ function ElectionCard({ election, onClick }: { election: ElectionResponse; onCli
                             </Typography>
                         </Stack>
                     )}
-                    {election.votingDaysLimit > 0 && (
+                    {timeRemaining && (
                         <Stack direction="row" spacing={0.5} alignItems="center">
-                            <AccessTimeIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
-                            <Typography variant="caption" color="text.secondary">
-                                {election.votingDaysLimit} day{election.votingDaysLimit !== 1 ? 's' : ''} voting
+                            <AccessTimeIcon sx={{ fontSize: 14, color: statusConf.color }} />
+                            <Typography variant="caption" fontWeight={600} sx={{ color: statusConf.color }}>
+                                {timeRemaining}
                             </Typography>
                         </Stack>
                     )}
@@ -175,7 +206,7 @@ export default function ElectionsPage() {
     const router = useRouter();
     const {
         elections, totalElections, myCandidacies,
-        isLoading, isCandidateLoading, error, successMessage,
+        isLoading, error, successMessage,
         loadElections, loadVotableElections, loadUpcomingElections, searchElections,
         loadMyCandidacies, clearError, clearSuccess,
     } = useElection();
@@ -216,7 +247,7 @@ export default function ElectionsPage() {
     }, [error, successMessage, clearError, clearSuccess]);
 
     const votingOpenCount = elections.filter(e => e.status === 'VOTING_OPEN').length;
-    const upcomingCount = elections.filter(e => ['DRAFT', 'NOMINATIONS_OPEN', 'NOMINATIONS_CLOSED'].includes(e.status)).length;
+    const upcomingCount = elections.filter(e => ['DRAFT', 'NOMINATION_OPEN', 'NOMINATION_CLOSED'].includes(e.status)).length;
 
     const stats = [
         { label: 'Total Elections', value: totalElections, icon: BallotIcon, color: '#3B82F6' },

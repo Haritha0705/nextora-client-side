@@ -1,6 +1,7 @@
 /**
  * @fileoverview Election Module Services
  * @description API services for elections, candidates, voting, and results
+ * Aligned with backend Postman collection endpoints
  */
 
 import apiClient from '@/lib/api-client';
@@ -79,13 +80,9 @@ export const ELECTION_ENDPOINTS = {
     ELECTION_RESULTS: (electionId: number) => `/club/election/${electionId}/results`,
     LIVE_VOTE_COUNT: (electionId: number) => `/club/election/${electionId}/live-count`,
 
-    // Club-Scoped Elections
-    CLUB_ELECTIONS: (clubId: number) => `/club/${clubId}/elections`,
-    CLUB_ACTIVE_ELECTIONS: (clubId: number) => `/club/${clubId}/elections/active`,
-    CLUB_UPCOMING_ELECTIONS: (clubId: number) => `/club/${clubId}/elections/upcoming`,
-    CLUB_COMPLETED_ELECTIONS: (clubId: number) => `/club/${clubId}/elections/completed`,
-
     // Admin Endpoints
+    ADMIN_ALL_ELECTIONS: '/admin/election',
+    ADMIN_PERMANENT_DELETE: (electionId: number) => `/admin/election/${electionId}/permanent`,
     ADMIN_FORCE_OPEN_NOMINATIONS: (id: number) => `/admin/election/${id}/force-open-nominations`,
     ADMIN_FORCE_CLOSE_NOMINATIONS: (id: number) => `/admin/election/${id}/force-close-nominations`,
     ADMIN_FORCE_OPEN_VOTING: (id: number) => `/admin/election/${id}/force-open-voting`,
@@ -99,8 +96,8 @@ export const ELECTION_ENDPOINTS = {
         `/admin/election/${electionId}/candidates/${candidateId}/force-reject`,
     ADMIN_DISQUALIFY_CANDIDATE: (electionId: number, candidateId: number) =>
         `/admin/election/${electionId}/candidates/${candidateId}/disqualify`,
+    ADMIN_UPDATE_CANDIDATE: (candidateId: number) => `/admin/election/candidates/${candidateId}`,
     ADMIN_LIVE_VOTES: (electionId: number) => `/admin/election/${electionId}/live-votes`,
-    ADMIN_PERMANENT_DELETE: (electionId: number) => `/admin/election/${electionId}/permanent`,
     ADMIN_STATISTICS: '/admin/election/statistics',
     ADMIN_STATISTICS_BY_CLUB: (clubId: number) => `/admin/election/statistics/clubs/${clubId}`,
     ADMIN_STATISTICS_BY_ELECTION: (electionId: number) => `/admin/election/statistics/elections/${electionId}`,
@@ -343,46 +340,15 @@ export async function getLiveVoteCount(electionId: number): Promise<LiveVoteCoun
 }
 
 // ============================================================================
-// Club-Scoped Election Services
-// ============================================================================
-
-export async function getClubElections(clubId: number, params: ElectionPaginationParams = {}): Promise<ElectionsPagedResponse> {
-    const query = buildQueryParams(params);
-    const url = query ? `${ELECTION_ENDPOINTS.CLUB_ELECTIONS(clubId)}?${query}` : ELECTION_ENDPOINTS.CLUB_ELECTIONS(clubId);
-    const response = await apiClient.get<ElectionsPagedResponse>(url);
-    return response.data;
-}
-
-export async function getClubActiveElections(clubId: number, params: ElectionPaginationParams = {}): Promise<ElectionsPagedResponse> {
-    const query = buildQueryParams(params);
-    const url = query
-        ? `${ELECTION_ENDPOINTS.CLUB_ACTIVE_ELECTIONS(clubId)}?${query}`
-        : ELECTION_ENDPOINTS.CLUB_ACTIVE_ELECTIONS(clubId);
-    const response = await apiClient.get<ElectionsPagedResponse>(url);
-    return response.data;
-}
-
-export async function getClubUpcomingElections(clubId: number, params: ElectionPaginationParams = {}): Promise<ElectionsPagedResponse> {
-    const query = buildQueryParams(params);
-    const url = query
-        ? `${ELECTION_ENDPOINTS.CLUB_UPCOMING_ELECTIONS(clubId)}?${query}`
-        : ELECTION_ENDPOINTS.CLUB_UPCOMING_ELECTIONS(clubId);
-    const response = await apiClient.get<ElectionsPagedResponse>(url);
-    return response.data;
-}
-
-export async function getClubCompletedElections(clubId: number, params: ElectionPaginationParams = {}): Promise<ElectionsPagedResponse> {
-    const query = buildQueryParams(params);
-    const url = query
-        ? `${ELECTION_ENDPOINTS.CLUB_COMPLETED_ELECTIONS(clubId)}?${query}`
-        : ELECTION_ENDPOINTS.CLUB_COMPLETED_ELECTIONS(clubId);
-    const response = await apiClient.get<ElectionsPagedResponse>(url);
-    return response.data;
-}
-
-// ============================================================================
 // Admin Services
 // ============================================================================
+
+export async function adminGetAllElections(params: ElectionPaginationParams = {}): Promise<ElectionsPagedResponse> {
+    const query = buildQueryParams(params);
+    const url = query ? `${ELECTION_ENDPOINTS.ADMIN_ALL_ELECTIONS}?${query}` : ELECTION_ENDPOINTS.ADMIN_ALL_ELECTIONS;
+    const response = await apiClient.get<ElectionsPagedResponse>(url);
+    return response.data;
+}
 
 export async function adminForceOpenNominations(id: number): Promise<ElectionActionResponse> {
     const response = await apiClient.post<ElectionActionResponse>(ELECTION_ENDPOINTS.ADMIN_FORCE_OPEN_NOMINATIONS(id));
@@ -409,13 +375,19 @@ export async function adminForcePublishResults(id: number): Promise<ElectionActi
     return response.data;
 }
 
-export async function adminForceCancelElection(id: number, data: CancelElectionRequest): Promise<ElectionActionResponse> {
-    const response = await apiClient.post<ElectionActionResponse>(ELECTION_ENDPOINTS.ADMIN_FORCE_CANCEL(id), data);
+export async function adminForceCancelElection(id: number, reason: string): Promise<ElectionActionResponse> {
+    const response = await apiClient.post<ElectionActionResponse>(
+        `${ELECTION_ENDPOINTS.ADMIN_FORCE_CANCEL(id)}?reason=${encodeURIComponent(reason)}`
+    );
     return response.data;
 }
 
-export async function adminGetCandidates(electionId: number): Promise<CandidatesPagedResponse> {
-    const response = await apiClient.get<CandidatesPagedResponse>(ELECTION_ENDPOINTS.ADMIN_CANDIDATES(electionId));
+export async function adminGetCandidates(electionId: number, params: ElectionPaginationParams = {}): Promise<CandidatesPagedResponse> {
+    const query = buildQueryParams(params);
+    const url = query
+        ? `${ELECTION_ENDPOINTS.ADMIN_CANDIDATES(electionId)}?${query}`
+        : ELECTION_ENDPOINTS.ADMIN_CANDIDATES(electionId);
+    const response = await apiClient.get<CandidatesPagedResponse>(url);
     return response.data;
 }
 
@@ -426,17 +398,33 @@ export async function adminForceApproveCandidate(electionId: number, candidateId
     return response.data;
 }
 
-export async function adminForceRejectCandidate(electionId: number, candidateId: number): Promise<ElectionActionResponse> {
-    const response = await apiClient.post<ElectionActionResponse>(
-        ELECTION_ENDPOINTS.ADMIN_FORCE_REJECT_CANDIDATE(electionId, candidateId)
-    );
+export async function adminForceRejectCandidate(electionId: number, candidateId: number, reason?: string): Promise<ElectionActionResponse> {
+    const url = reason
+        ? `${ELECTION_ENDPOINTS.ADMIN_FORCE_REJECT_CANDIDATE(electionId, candidateId)}?reason=${encodeURIComponent(reason)}`
+        : ELECTION_ENDPOINTS.ADMIN_FORCE_REJECT_CANDIDATE(electionId, candidateId);
+    const response = await apiClient.post<ElectionActionResponse>(url);
     return response.data;
 }
 
-export async function adminDisqualifyCandidate(electionId: number, candidateId: number): Promise<ElectionActionResponse> {
-    const response = await apiClient.post<ElectionActionResponse>(
-        ELECTION_ENDPOINTS.ADMIN_DISQUALIFY_CANDIDATE(electionId, candidateId)
-    );
+export async function adminDisqualifyCandidate(electionId: number, candidateId: number, reason?: string): Promise<ElectionActionResponse> {
+    const url = reason
+        ? `${ELECTION_ENDPOINTS.ADMIN_DISQUALIFY_CANDIDATE(electionId, candidateId)}?reason=${encodeURIComponent(reason)}`
+        : ELECTION_ENDPOINTS.ADMIN_DISQUALIFY_CANDIDATE(electionId, candidateId);
+    const response = await apiClient.post<ElectionActionResponse>(url);
+    return response.data;
+}
+
+export async function adminUpdateCandidate(candidateId: number, data: UpdateNominationRequest): Promise<CandidateDetailResponse> {
+    const formData = new FormData();
+    if (data.manifesto) formData.append('manifesto', data.manifesto);
+    if (data.slogan) formData.append('slogan', data.slogan);
+    if (data.qualifications) formData.append('qualifications', data.qualifications);
+    if (data.previousExperience) formData.append('previousExperience', data.previousExperience);
+    if (data.photo) formData.append('photo', data.photo);
+
+    const response = await apiClient.put<CandidateDetailResponse>(ELECTION_ENDPOINTS.ADMIN_UPDATE_CANDIDATE(candidateId), formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response.data;
 }
 

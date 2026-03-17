@@ -3,42 +3,46 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box, Typography, Stack, alpha, useTheme, Paper, IconButton, Card, CardContent, Grid, Avatar,
-    Tooltip, Snackbar, Alert, Skeleton, Button, Dialog, DialogTitle, DialogContent, DialogContentText,
-    DialogActions, Chip, Tabs, Tab, CircularProgress,
+    Snackbar, Alert, Skeleton, Button, Dialog, DialogTitle, DialogContent, DialogContentText,
+    DialogActions, Chip, Tabs, Tab, CircularProgress, TextField,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SettingsIcon from '@mui/icons-material/Settings';
-import EventIcon from '@mui/icons-material/Event';
-import DescriptionIcon from '@mui/icons-material/Description';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import DeleteIcon from '@mui/icons-material/Delete';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PersonIcon from '@mui/icons-material/Person';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
 import PublishIcon from '@mui/icons-material/Publish';
+import CancelIcon from '@mui/icons-material/Cancel';
+import DeleteIcon from '@mui/icons-material/Delete';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useRouter, useParams } from 'next/navigation';
 import { useElection } from '@/hooks/useElection';
 import type { CandidateResponse } from '@/features/election/types';
 
 const MotionBox = motion.create(Box);
 
-const STATUS_ORDER = ['DRAFT', 'NOMINATIONS_OPEN', 'NOMINATIONS_CLOSED', 'VOTING_OPEN', 'VOTING_CLOSED', 'RESULTS_PUBLISHED'];
+const STATUS_ORDER = ['DRAFT', 'NOMINATION_OPEN', 'NOMINATION_CLOSED', 'VOTING_OPEN', 'VOTING_CLOSED', 'RESULTS_PUBLISHED'];
 const STATUS_LABELS: Record<string, string> = {
-    DRAFT: 'Draft', NOMINATIONS_OPEN: 'Nominations Open', NOMINATIONS_CLOSED: 'Nominations Closed',
-    VOTING_OPEN: 'Voting Open', VOTING_CLOSED: 'Voting Closed', RESULTS_PUBLISHED: 'Results Published', CANCELLED: 'Cancelled',
+    DRAFT: 'Draft', NOMINATION_OPEN: 'Nominations Open', NOMINATION_CLOSED: 'Nominations Closed',
+    VOTING_OPEN: 'Voting Open', VOTING_CLOSED: 'Voting Closed', RESULTS_PUBLISHED: 'Results Published',
+    CANCELLED: 'Cancelled', ARCHIVED: 'Archived',
 };
 const STATUS_COLORS: Record<string, string> = {
-    DRAFT: '#6B7280', NOMINATIONS_OPEN: '#F59E0B', NOMINATIONS_CLOSED: '#8B5CF6',
-    VOTING_OPEN: '#10B981', VOTING_CLOSED: '#3B82F6', RESULTS_PUBLISHED: '#EC4899', CANCELLED: '#EF4444',
+    DRAFT: '#6B7280', NOMINATION_OPEN: '#F59E0B', NOMINATION_CLOSED: '#8B5CF6',
+    VOTING_OPEN: '#10B981', VOTING_CLOSED: '#3B82F6', RESULTS_PUBLISHED: '#EC4899',
+    CANCELLED: '#EF4444', ARCHIVED: '#9CA3AF',
 };
 
-function AdminCandidateCard({ candidate, onReview, onDisqualify }: { candidate: CandidateResponse; onReview: (id: number, approved: boolean) => void; onDisqualify: (id: number) => void }) {
+function AdminCandidateCard({ candidate, onApprove, onReject, onDisqualify }: {
+    candidate: CandidateResponse;
+    onApprove: (id: number) => void;
+    onReject: (id: number) => void;
+    onDisqualify: (id: number) => void;
+}) {
     const isPending = candidate.status === 'PENDING';
     const isApproved = candidate.status === 'APPROVED';
     const isRejected = candidate.status === 'REJECTED';
@@ -60,25 +64,35 @@ function AdminCandidateCard({ candidate, onReview, onDisqualify }: { candidate: 
                         }} />
                     </Box>
                 </Stack>
+                {candidate.slogan && (
+                    <Typography variant="body2" color="text.secondary" fontStyle="italic" sx={{ mb: 1 }}>
+                        &ldquo;{candidate.slogan}&rdquo;
+                    </Typography>
+                )}
                 {candidate.manifesto && (
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
                         {candidate.manifesto}
                     </Typography>
+                )}
+                {candidate.rejectionReason && (
+                    <Alert severity="error" variant="outlined" sx={{ mt: 1, borderRadius: 1, py: 0 }}>
+                        <Typography variant="caption">{candidate.rejectionReason}</Typography>
+                    </Alert>
                 )}
             </CardContent>
             {(isPending || isApproved) && (
                 <Stack direction="row" spacing={1} sx={{ p: 2, pt: 0, borderTop: '1px solid', borderColor: 'divider', mt: 'auto', bgcolor: alpha('#000', 0.02) }}>
                     {isPending && (
                         <>
-                            <Button fullWidth variant="contained" size="small" startIcon={<ThumbUpIcon />} onClick={() => onReview(candidate.id, true)}
+                            <Button fullWidth variant="contained" size="small" startIcon={<ThumbUpIcon />} onClick={() => onApprove(candidate.id)}
                                 sx={{ textTransform: 'none', bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' } }}>Approve</Button>
-                            <Button fullWidth variant="outlined" size="small" color="error" startIcon={<ThumbDownIcon />} onClick={() => onReview(candidate.id, false)}
+                            <Button fullWidth variant="outlined" size="small" color="error" startIcon={<ThumbDownIcon />} onClick={() => onReject(candidate.id)}
                                 sx={{ textTransform: 'none' }}>Reject</Button>
                         </>
                     )}
                     {isApproved && (
                         <Button fullWidth variant="outlined" size="small" color="warning" startIcon={<WarningAmberIcon />} onClick={() => onDisqualify(candidate.id)}
-                            sx={{ textTransform: 'none' }}>Disqualify Candidate</Button>
+                            sx={{ textTransform: 'none' }}>Disqualify</Button>
                     )}
                 </Stack>
             )}
@@ -103,20 +117,30 @@ export default function AdminElectionDetailPage() {
 
     const [activeTab, setActiveTab] = useState(0);
     const [confirmAction, setConfirmAction] = useState<{ action: string; label: string; color: string; handler: () => void } | null>(null);
+    const [cancelReason, setCancelReason] = useState('');
+    const [rejectReason, setRejectReason] = useState('');
+    const [rejectDialog, setRejectDialog] = useState<{ candidateId: number } | null>(null);
+    const [disqualifyReason, setDisqualifyReason] = useState('');
+    const [disqualifyDialog, setDisqualifyDialog] = useState<{ candidateId: number } | null>(null);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
+    const refreshData = () => {
+        loadElectionById(electionId);
+        adminGetCandidates(electionId);
+        adminGetLiveVotes(electionId);
+    };
+
     useEffect(() => {
-        if (electionId) {
-            loadElectionById(electionId);
-            adminGetCandidates(electionId);
-            adminGetLiveVotes(electionId);
-        }
+        if (electionId) refreshData();
         return () => { resetSelectedElection(); resetCandidates(); };
     }, [electionId]);
 
     useEffect(() => {
         if (error) { setSnackbar({ open: true, message: error, severity: 'error' }); clearError(); setConfirmAction(null); }
-        if (successMessage) { setSnackbar({ open: true, message: successMessage, severity: 'success' }); clearSuccess(); setConfirmAction(null); }
+        if (successMessage) {
+            setSnackbar({ open: true, message: successMessage, severity: 'success' }); clearSuccess(); setConfirmAction(null);
+            refreshData();
+        }
     }, [error, successMessage]);
 
     const handleActionClick = (action: string, label: string, color: string, handler: () => void) => {
@@ -139,15 +163,15 @@ export default function AdminElectionDetailPage() {
     const e = selectedElection;
     const sC = STATUS_COLORS[e.status] || '#6B7280';
     const sL = STATUS_LABELS[e.status] || e.status;
+
     const can = (action: string) => {
-        const idx = STATUS_ORDER.indexOf(e.status);
         switch (action) {
             case 'open_nom': return e.status === 'DRAFT';
-            case 'close_nom': return e.status === 'NOMINATIONS_OPEN';
-            case 'open_vote': return e.status === 'NOMINATIONS_CLOSED';
+            case 'close_nom': return e.status === 'NOMINATION_OPEN';
+            case 'open_vote': return e.status === 'NOMINATION_CLOSED';
             case 'close_vote': return e.status === 'VOTING_OPEN';
             case 'publish': return e.status === 'VOTING_CLOSED';
-            case 'cancel': return e.status !== 'CANCELLED' && e.status !== 'RESULTS_PUBLISHED';
+            case 'cancel': return e.status !== 'CANCELLED' && e.status !== 'RESULTS_PUBLISHED' && e.status !== 'ARCHIVED';
             default: return false;
         }
     };
@@ -158,7 +182,10 @@ export default function AdminElectionDetailPage() {
         { id: 'open_vote', label: 'Open Voting', icon: <PlayArrowIcon />, color: '#10B981', show: can('open_vote'), fn: () => adminForceOpenVoting(electionId) },
         { id: 'close_vote', label: 'Close Voting', icon: <StopIcon />, color: '#3B82F6', show: can('close_vote'), fn: () => adminForceCloseVoting(electionId) },
         { id: 'publish', label: 'Publish Results', icon: <PublishIcon />, color: '#EC4899', show: can('publish'), fn: () => adminForcePublishResults(electionId) },
-        { id: 'cancel', label: 'Cancel Election', icon: <CancelIcon />, color: '#EF4444', show: can('cancel'), fn: () => adminForceCancel(electionId, { reason: 'Admin forced cancellation' }) },
+        {
+            id: 'cancel', label: 'Cancel Election', icon: <CancelIcon />, color: '#EF4444', show: can('cancel'),
+            fn: () => adminForceCancel(electionId, cancelReason || 'Admin forced cancellation')
+        },
         { id: 'reset', label: 'Reset Votes', icon: <RestartAltIcon />, color: '#F59E0B', show: true, fn: () => adminResetVotes(electionId) },
         { id: 'delete', label: 'Permanent Delete', icon: <DeleteIcon />, color: '#DC2626', show: true, fn: () => adminPermanentDelete(electionId).then(() => router.push('/admin/elections')) },
     ];
@@ -192,26 +219,55 @@ export default function AdminElectionDetailPage() {
                                     <Typography variant="body2" fontWeight={500}>{e.clubName || 'N/A'}</Typography>
                                 </Grid>
                                 <Grid size={{ xs: 6, sm: 4 }}>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">DATE & YEAR</Typography>
-                                    <Typography variant="body2" fontWeight={500}>{new Date(e.electionDate).toLocaleDateString()} ({e.electionYear})</Typography>
-                                </Grid>
-                                <Grid size={{ xs: 6, sm: 4 }}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">TYPE</Typography>
                                     <Typography variant="body2" fontWeight={500}>{e.electionType.replace(/_/g, ' ')}</Typography>
                                 </Grid>
                                 <Grid size={{ xs: 6, sm: 4 }}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">APPROVED CANDIDATES</Typography>
-                                    <Typography variant="body2" fontWeight={500}>{e.totalApprovedCandidates || 0}</Typography>
+                                    <Typography variant="body2" fontWeight={500}>{e.totalApprovedCandidates || 0} / {e.maxCandidates}</Typography>
                                 </Grid>
-                                {liveVoteCount !== null && (
+                                <Grid size={{ xs: 6, sm: 4 }}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">NOMINATION PERIOD</Typography>
+                                    <Typography variant="body2" fontWeight={500}>
+                                        {new Date(e.nominationStartTime).toLocaleDateString()} - {new Date(e.nominationEndTime).toLocaleDateString()}
+                                    </Typography>
+                                </Grid>
+                                <Grid size={{ xs: 6, sm: 4 }}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">VOTING PERIOD</Typography>
+                                    <Typography variant="body2" fontWeight={500}>
+                                        {new Date(e.votingStartTime).toLocaleDateString()} - {new Date(e.votingEndTime).toLocaleDateString()}
+                                    </Typography>
+                                </Grid>
+                                <Grid size={{ xs: 6, sm: 4 }}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">WINNERS</Typography>
+                                    <Typography variant="body2" fontWeight={500}>{e.winnersCount}</Typography>
+                                </Grid>
+                                {liveVoteCount && (
                                     <Grid size={{ xs: 6, sm: 4 }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">LIVE VOTE COUNT</Typography>
-                                        <Typography variant="body2" fontWeight={700} color="#10B981">{typeof liveVoteCount === 'number' ? liveVoteCount : (liveVoteCount as any).voteCount || 0} total votes</Typography>
+                                        <Typography variant="body2" fontWeight={700} color="#10B981">{liveVoteCount.totalVotes} total votes</Typography>
                                     </Grid>
                                 )}
+                                <Grid size={{ xs: 6, sm: 4 }}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">SETTINGS</Typography>
+                                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                                        {e.isAnonymousVoting && <Chip label="Anonymous" size="small" sx={{ height: 20, fontSize: '0.65rem' }} />}
+                                        {e.requireManifesto && <Chip label="Manifesto Required" size="small" sx={{ height: 20, fontSize: '0.65rem' }} />}
+                                    </Stack>
+                                </Grid>
                             </Grid>
-                            <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mt: 2 }}>DESCRIPTION</Typography>
-                            <Typography variant="body2" color="text.secondary">{e.description}</Typography>
+                            {e.description && (
+                                <>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mt: 2 }}>DESCRIPTION</Typography>
+                                    <Typography variant="body2" color="text.secondary">{e.description}</Typography>
+                                </>
+                            )}
+                            {e.eligibilityCriteria && (
+                                <>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" sx={{ mt: 2 }}>ELIGIBILITY CRITERIA</Typography>
+                                    <Typography variant="body2" color="text.secondary">{e.eligibilityCriteria}</Typography>
+                                </>
+                            )}
                         </CardContent>
                     </Card>
                 </Grid>
@@ -221,15 +277,30 @@ export default function AdminElectionDetailPage() {
                             <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>Lifecycle Actions</Typography>
                             <Stack spacing={1.5}>
                                 {adminActions.filter(a => a.show).map(a => (
-                                    <Button key={a.id} fullWidth variant={a.id === 'delete' || a.id === 'cancel' ? 'outlined' : 'contained'}
-                                        startIcon={a.icon} color={a.id === 'delete' ? 'error' : a.id === 'cancel' ? 'error' : 'inherit'}
-                                        sx={{
-                                            justifyContent: 'flex-start', textTransform: 'none', fontWeight: 600,
-                                            ...(a.id !== 'delete' && a.id !== 'cancel' && { bgcolor: a.color, color: '#fff', '&:hover': { bgcolor: alpha(a.color, 0.8) } })
-                                        }}
-                                        onClick={() => handleActionClick(a.id, a.label, a.color, a.fn)}>
-                                        {a.label}
-                                    </Button>
+                                    <Box key={a.id}>
+                                        {a.id === 'cancel' ? (
+                                            <Stack spacing={1}>
+                                                <TextField size="small" fullWidth placeholder="Cancellation reason..." value={cancelReason}
+                                                    onChange={e => setCancelReason(e.target.value)}
+                                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }} />
+                                                <Button fullWidth variant="outlined" color="error" startIcon={a.icon}
+                                                    sx={{ justifyContent: 'flex-start', textTransform: 'none', fontWeight: 600 }}
+                                                    onClick={() => handleActionClick(a.id, a.label, a.color, a.fn)}>
+                                                    {a.label}
+                                                </Button>
+                                            </Stack>
+                                        ) : (
+                                            <Button fullWidth variant={a.id === 'delete' ? 'outlined' : 'contained'}
+                                                startIcon={a.icon} color={a.id === 'delete' ? 'error' : 'inherit'}
+                                                sx={{
+                                                    justifyContent: 'flex-start', textTransform: 'none', fontWeight: 600,
+                                                    ...(a.id !== 'delete' && { bgcolor: a.color, color: '#fff', '&:hover': { bgcolor: alpha(a.color, 0.8) } })
+                                                }}
+                                                onClick={() => handleActionClick(a.id, a.label, a.color, a.fn)}>
+                                                {a.label}
+                                            </Button>
+                                        )}
+                                    </Box>
                                 ))}
                             </Stack>
                         </CardContent>
@@ -254,21 +325,46 @@ export default function AdminElectionDetailPage() {
                         <Grid container spacing={2}>
                             {activeTab === 0 && (
                                 cPending.length === 0 ? <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No pending candidates.</Typography>
-                                    : cPending.map(c => <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={c.id}><AdminCandidateCard candidate={c} onReview={(id, a) => a ? adminForceApproveCandidate(electionId, id) : adminForceRejectCandidate(electionId, id)} onDisqualify={(id) => adminDisqualifyCandidate(electionId, id)} /></Grid>)
+                                    : cPending.map(c => (
+                                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={c.id}>
+                                            <AdminCandidateCard candidate={c}
+                                                onApprove={(id) => adminForceApproveCandidate(electionId, id)}
+                                                onReject={(id) => { setRejectDialog({ candidateId: id }); setRejectReason(''); }}
+                                                onDisqualify={(id) => { setDisqualifyDialog({ candidateId: id }); setDisqualifyReason(''); }}
+                                            />
+                                        </Grid>
+                                    ))
                             )}
                             {activeTab === 1 && (
                                 cApproved.length === 0 ? <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No approved candidates.</Typography>
-                                    : cApproved.map(c => <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={c.id}><AdminCandidateCard candidate={c} onReview={() => { }} onDisqualify={(id) => adminDisqualifyCandidate(electionId, id)} /></Grid>)
+                                    : cApproved.map(c => (
+                                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={c.id}>
+                                            <AdminCandidateCard candidate={c}
+                                                onApprove={() => {}}
+                                                onReject={() => {}}
+                                                onDisqualify={(id) => { setDisqualifyDialog({ candidateId: id }); setDisqualifyReason(''); }}
+                                            />
+                                        </Grid>
+                                    ))
                             )}
                             {activeTab === 2 && (
                                 cOther.length === 0 ? <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>No rejected/disqualified candidates.</Typography>
-                                    : cOther.map(c => <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={c.id}><AdminCandidateCard candidate={c} onReview={() => { }} onDisqualify={() => { }} /></Grid>)
+                                    : cOther.map(c => (
+                                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={c.id}>
+                                            <AdminCandidateCard candidate={c}
+                                                onApprove={() => {}}
+                                                onReject={() => {}}
+                                                onDisqualify={() => {}}
+                                            />
+                                        </Grid>
+                                    ))
                             )}
                         </Grid>
                     )}
                 </Box>
             </Paper>
 
+            {/* Confirm Action Dialog */}
             <Dialog open={!!confirmAction} onClose={() => setConfirmAction(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
                 <DialogTitle sx={{ fontWeight: 700, color: confirmAction?.color }}>Confirm Action</DialogTitle>
                 <DialogContent>
@@ -281,6 +377,54 @@ export default function AdminElectionDetailPage() {
                     <Button variant="contained" onClick={executeAction} disabled={isLifecycleLoading}
                         sx={{ textTransform: 'none', borderRadius: 1, fontWeight: 700, bgcolor: confirmAction?.color, '&:hover': { filter: 'brightness(0.9)' } }}>
                         {isLifecycleLoading ? <CircularProgress size={24} color="inherit" /> : 'Confirm'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Reject Candidate Dialog */}
+            <Dialog open={!!rejectDialog} onClose={() => setRejectDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
+                <DialogTitle sx={{ fontWeight: 700, color: '#EF4444' }}>Reject Candidate</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        Provide a reason for rejecting this candidate.
+                    </DialogContentText>
+                    <TextField fullWidth label="Rejection Reason" value={rejectReason}
+                        onChange={e => setRejectReason(e.target.value)} size="small" multiline rows={2}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }} />
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setRejectDialog(null)} sx={{ textTransform: 'none' }}>Cancel</Button>
+                    <Button variant="contained" color="error" onClick={() => {
+                        if (rejectDialog) {
+                            adminForceRejectCandidate(electionId, rejectDialog.candidateId, rejectReason || undefined);
+                            setRejectDialog(null);
+                        }
+                    }} sx={{ textTransform: 'none', borderRadius: 1, fontWeight: 700 }}>
+                        Reject
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Disqualify Candidate Dialog */}
+            <Dialog open={!!disqualifyDialog} onClose={() => setDisqualifyDialog(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 1 } }}>
+                <DialogTitle sx={{ fontWeight: 700, color: '#F59E0B' }}>Disqualify Candidate</DialogTitle>
+                <DialogContent>
+                    <DialogContentText sx={{ mb: 2 }}>
+                        Provide a reason for disqualifying this candidate.
+                    </DialogContentText>
+                    <TextField fullWidth label="Disqualification Reason" value={disqualifyReason}
+                        onChange={e => setDisqualifyReason(e.target.value)} size="small" multiline rows={2}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }} />
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setDisqualifyDialog(null)} sx={{ textTransform: 'none' }}>Cancel</Button>
+                    <Button variant="contained" color="warning" onClick={() => {
+                        if (disqualifyDialog) {
+                            adminDisqualifyCandidate(electionId, disqualifyDialog.candidateId, disqualifyReason || undefined);
+                            setDisqualifyDialog(null);
+                        }
+                    }} sx={{ textTransform: 'none', borderRadius: 1, fontWeight: 700 }}>
+                        Disqualify
                     </Button>
                 </DialogActions>
             </Dialog>

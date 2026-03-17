@@ -1132,11 +1132,11 @@ export default function ClubDetailView({ clubId, backPath, isAdmin = false, isSu
                                 <Grid container spacing={2}>
                                     <Grid size={{ xs: 6 }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={600}>Nominations</Typography>
-                                        <Typography variant="body2">{new Date(selectedElection.nominationStartDate).toLocaleDateString()} – {new Date(selectedElection.nominationEndDate).toLocaleDateString()}</Typography>
+                                        <Typography variant="body2">{new Date(selectedElection.nominationStartTime).toLocaleDateString()} – {new Date(selectedElection.nominationEndTime).toLocaleDateString()}</Typography>
                                     </Grid>
                                     <Grid size={{ xs: 6 }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={600}>Voting</Typography>
-                                        <Typography variant="body2">{new Date(selectedElection.votingStartDate).toLocaleDateString()} – {new Date(selectedElection.votingEndDate).toLocaleDateString()}</Typography>
+                                        <Typography variant="body2">{new Date(selectedElection.votingStartTime).toLocaleDateString()} – {new Date(selectedElection.votingEndTime).toLocaleDateString()}</Typography>
                                     </Grid>
                                 </Grid>
                             </Box>

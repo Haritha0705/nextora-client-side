@@ -3,23 +3,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box, Typography, Chip, Stack, alpha, useTheme, Paper, IconButton, Card, CardContent, Grid, Avatar,
-    Tooltip, Snackbar, Alert, Skeleton, Button, Dialog, DialogTitle, DialogContent, DialogContentText,
-    DialogActions, TextField, Stepper, Step, StepLabel, Divider, LinearProgress,
+    Snackbar, Alert, Skeleton, Button, Dialog, DialogTitle, DialogContent, DialogContentText,
+    DialogActions, TextField, Stepper, Step, StepLabel,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HowToVoteIcon from '@mui/icons-material/HowToVote';
-import BallotIcon from '@mui/icons-material/Ballot';
 import EventIcon from '@mui/icons-material/Event';
 import GroupsIcon from '@mui/icons-material/Groups';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CancelIcon from '@mui/icons-material/Cancel';
+import ArchiveIcon from '@mui/icons-material/Archive';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import VerifiedIcon from '@mui/icons-material/Verified';
 import PersonIcon from '@mui/icons-material/Person';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import BallotIcon from '@mui/icons-material/Ballot';
 import { motion } from 'framer-motion';
 import { useRouter, useParams } from 'next/navigation';
 import { useElection } from '@/hooks/useElection';
@@ -27,21 +27,22 @@ import type { CandidateResponse, ElectionStatus } from '@/features/election/type
 
 const MotionBox = motion.create(Box);
 
-const STATUS_STEPS: ElectionStatus[] = ['DRAFT', 'NOMINATIONS_OPEN', 'NOMINATIONS_CLOSED', 'VOTING_OPEN', 'VOTING_CLOSED', 'RESULTS_PUBLISHED'];
+const STATUS_STEPS: ElectionStatus[] = ['DRAFT', 'NOMINATION_OPEN', 'NOMINATION_CLOSED', 'VOTING_OPEN', 'VOTING_CLOSED', 'RESULTS_PUBLISHED'];
 const STATUS_LABELS: Record<string, string> = {
-    DRAFT: 'Draft', NOMINATIONS_OPEN: 'Nominations Open', NOMINATIONS_CLOSED: 'Nominations Closed',
-    VOTING_OPEN: 'Voting Open', VOTING_CLOSED: 'Voting Closed', RESULTS_PUBLISHED: 'Results Published', CANCELLED: 'Cancelled',
+    DRAFT: 'Draft', NOMINATION_OPEN: 'Nominations Open', NOMINATION_CLOSED: 'Nominations Closed',
+    VOTING_OPEN: 'Voting Open', VOTING_CLOSED: 'Voting Closed', RESULTS_PUBLISHED: 'Results Published',
+    CANCELLED: 'Cancelled', ARCHIVED: 'Archived',
 };
 const STATUS_COLORS: Record<string, string> = {
-    DRAFT: '#6B7280', NOMINATIONS_OPEN: '#F59E0B', NOMINATIONS_CLOSED: '#8B5CF6',
-    VOTING_OPEN: '#10B981', VOTING_CLOSED: '#3B82F6', RESULTS_PUBLISHED: '#EC4899', CANCELLED: '#EF4444',
+    DRAFT: '#6B7280', NOMINATION_OPEN: '#F59E0B', NOMINATION_CLOSED: '#8B5CF6',
+    VOTING_OPEN: '#10B981', VOTING_CLOSED: '#3B82F6', RESULTS_PUBLISHED: '#EC4899',
+    CANCELLED: '#EF4444', ARCHIVED: '#9CA3AF',
 };
 
 function CandidateCard({ candidate, isVotingOpen, hasVoted, selectedId, onSelect }: {
     candidate: CandidateResponse; isVotingOpen: boolean; hasVoted: boolean;
     selectedId: number | null; onSelect: (id: number) => void;
 }) {
-    const theme = useTheme();
     const isSelected = selectedId === candidate.id;
 
     return (
@@ -113,7 +114,7 @@ export default function ElectionDetailPage() {
         selectedElection, approvedCandidates, hasVoted, verificationToken, voteVerification,
         isDetailLoading, isCandidateLoading, isVoteLoading,
         error, successMessage,
-        loadElectionWithCandidates, loadApprovedCandidates, checkHasVoted,
+        loadElectionWithCandidates, checkHasVoted,
         castVote, verifyVote,
         clearError, clearSuccess, resetVoteState,
     } = useElection();
@@ -139,7 +140,7 @@ export default function ElectionDetailPage() {
 
     const election = selectedElection;
     const isVotingOpen = election?.status === 'VOTING_OPEN';
-    const isNominationsOpen = election?.status === 'NOMINATIONS_OPEN';
+    const isNominationsOpen = election?.status === 'NOMINATION_OPEN';
     const isResultsPublished = election?.status === 'RESULTS_PUBLISHED';
     const statusStep = election ? STATUS_STEPS.indexOf(election.status) : 0;
     const statusColor = election ? STATUS_COLORS[election.status] || '#6B7280' : '#6B7280';
@@ -183,6 +184,12 @@ export default function ElectionDetailPage() {
         );
     }
 
+    // Format dates for display
+    const votingStart = new Date(election.votingStartTime);
+    const votingEnd = new Date(election.votingEndTime);
+    const nomStart = new Date(election.nominationStartTime);
+    const nomEnd = new Date(election.nominationEndTime);
+
     return (
         <MotionBox initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} sx={{ maxWidth: 1200, mx: 'auto' }}>
             {/* Back + Title */}
@@ -204,19 +211,48 @@ export default function ElectionDetailPage() {
                             }} />
                             <Chip label={election.electionType?.replace(/_/g, ' ')} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
                             <Chip icon={<EventIcon sx={{ fontSize: '14px !important' }} />}
-                                label={new Date(election.electionDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                                label={`Voting: ${votingStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${votingEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
                                 size="small" sx={{ '& .MuiChip-icon': { color: 'inherit' } }} />
-                            <Chip icon={<AccessTimeIcon sx={{ fontSize: '14px !important' }} />}
-                                label={`${election.votingDaysLimit} day${election.votingDaysLimit !== 1 ? 's' : ''} voting`}
-                                size="small" sx={{ '& .MuiChip-icon': { color: 'inherit' } }} />
+                            {election.isAnonymousVoting && (
+                                <Chip label="Anonymous Voting" size="small" sx={{ fontWeight: 600, bgcolor: alpha('#10B981', 0.1), color: '#10B981' }} />
+                            )}
+                            {election.winnersCount > 1 && (
+                                <Chip label={`${election.winnersCount} Winners`} size="small" variant="outlined" />
+                            )}
                         </Stack>
 
                         {election.description && (
                             <Typography variant="body2" color="text.secondary">{election.description}</Typography>
                         )}
 
+                        {election.eligibilityCriteria && (
+                            <Alert severity="info" variant="outlined" sx={{ borderRadius: 1 }}>
+                                <Typography variant="body2"><strong>Eligibility:</strong> {election.eligibilityCriteria}</Typography>
+                            </Alert>
+                        )}
+
+                        {/* Timeline Info */}
+                        <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>NOMINATIONS</Typography>
+                                <Typography variant="body2">
+                                    {nomStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {nomEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>VOTING</Typography>
+                                <Typography variant="body2">
+                                    {votingStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {votingEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>MAX CANDIDATES</Typography>
+                                <Typography variant="body2">{election.maxCandidates}</Typography>
+                            </Box>
+                        </Stack>
+
                         {/* Status Stepper */}
-                        {election.status !== 'CANCELLED' && (
+                        {election.status !== 'CANCELLED' && election.status !== 'ARCHIVED' && (
                             <Stepper activeStep={statusStep} alternativeLabel sx={{
                                 '& .MuiStepIcon-root.Mui-completed': { color: '#10B981' },
                                 '& .MuiStepIcon-root.Mui-active': { color: statusColor },

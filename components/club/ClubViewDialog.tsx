@@ -324,13 +324,13 @@ export function ClubViewDialog({
                             <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 6' } }}>
                                 <Typography variant="caption" color="text.secondary">Voting Start</Typography>
                                 <Typography variant="body1">
-                                    {new Date(election.votingStartDate).toLocaleString()}
+                                    {new Date(election.votingStartTime).toLocaleString()}
                                 </Typography>
                             </Box>
                             <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 6' } }}>
                                 <Typography variant="caption" color="text.secondary">Voting End</Typography>
                                 <Typography variant="body1">
-                                    {new Date(election.votingEndDate).toLocaleString()}
+                                    {new Date(election.votingEndTime).toLocaleString()}
                                 </Typography>
                             </Box>
                             {election.candidates && election.candidates.length > 0 && (

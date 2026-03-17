@@ -19,13 +19,14 @@ export type ClubPosition =
     | 'MEMBER';
 
 export type ElectionStatus =
-    | 'UPCOMING'
-    | 'NOMINATIONS_OPEN'
-    | 'NOMINATIONS_CLOSED'
+    | 'DRAFT'
+    | 'NOMINATION_OPEN'
+    | 'NOMINATION_CLOSED'
     | 'VOTING_OPEN'
     | 'VOTING_CLOSED'
     | 'RESULTS_PUBLISHED'
-    | 'CANCELLED';
+    | 'CANCELLED'
+    | 'ARCHIVED';
 
 export type ActivityLogType =
     // Club
@@ -295,10 +296,10 @@ export interface ElectionResponse {
     title: string;
     description: string | null;
     status: ElectionStatus;
-    nominationStartDate: string;
-    nominationEndDate: string;
-    votingStartDate: string;
-    votingEndDate: string;
+    nominationStartTime: string;
+    nominationEndTime: string;
+    votingStartTime: string;
+    votingEndTime: string;
     candidates: CandidateResponse[];
     createdAt: string;
     updatedAt: string;
