@@ -1,6 +1,7 @@
 /**
  * @fileoverview Election Module Types
  * @description Type definitions for elections, candidates, voting, and results
+ * Aligned with backend Postman collection endpoints
  */
 
 // ============================================================================
@@ -9,14 +10,22 @@
 
 export type ElectionStatus =
     | 'DRAFT'
-    | 'NOMINATIONS_OPEN'
-    | 'NOMINATIONS_CLOSED'
+    | 'NOMINATION_OPEN'
+    | 'NOMINATION_CLOSED'
     | 'VOTING_OPEN'
     | 'VOTING_CLOSED'
     | 'RESULTS_PUBLISHED'
-    | 'CANCELLED';
+    | 'CANCELLED'
+    | 'ARCHIVED';
 
-export type ElectionType = 'PRESIDENTIAL' | 'GENERAL' | 'BY_ELECTION' | 'REFERENDUM';
+export type ElectionType =
+    | 'PRESIDENT'
+    | 'VICE_PRESIDENT'
+    | 'SECRETARY'
+    | 'TREASURER'
+    | 'GENERAL'
+    | 'POLL'
+    | 'REFERENDUM';
 
 export type CandidateStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN' | 'DISQUALIFIED';
 
@@ -32,11 +41,15 @@ export interface ElectionResponse {
     description: string | null;
     electionType: ElectionType;
     status: ElectionStatus;
-    electionDate: string;
-    votingDaysLimit: number;
-    electionYear: number;
-    maxVotesPerCandidate: number;
-    needsRevenue: boolean;
+    nominationStartTime: string;
+    nominationEndTime: string;
+    votingStartTime: string;
+    votingEndTime: string;
+    maxCandidates: number;
+    winnersCount: number;
+    isAnonymousVoting: boolean;
+    requireManifesto: boolean;
+    eligibilityCriteria?: string | null;
     totalCandidates?: number;
     totalApprovedCandidates?: number;
     totalVotes?: number;
@@ -50,22 +63,27 @@ export interface ElectionWithCandidatesResponse extends ElectionResponse {
 }
 
 export interface CreateElectionRequest {
-    clubId: number;
     title: string;
     description?: string;
+    clubId: number;
     electionType: ElectionType;
-    electionDate: string;
-    votingDaysLimit: number;
-    electionYear: number;
-    maxVotesPerCandidate?: number;
-    needsRevenue?: boolean;
+    nominationStartTime: string;
+    nominationEndTime: string;
+    votingStartTime: string;
+    votingEndTime: string;
+    maxCandidates?: number;
+    winnersCount?: number;
+    isAnonymousVoting?: boolean;
+    requireManifesto?: boolean;
+    eligibilityCriteria?: string;
 }
 
 export interface UpdateElectionRequest {
     title?: string;
     description?: string;
-    electionDate?: string;
-    votingDaysLimit?: number;
+    maxCandidates?: number;
+    winnersCount?: number;
+    requireManifesto?: boolean;
 }
 
 export interface CancelElectionRequest {
@@ -89,7 +107,7 @@ export interface CandidateResponse {
     previousExperience: string | null;
     photoUrl: string | null;
     status: CandidateStatus;
-    reviewComments: string | null;
+    rejectionReason: string | null;
     reviewedAt: string | null;
     reviewedBy: string | null;
     voteCount?: number;
@@ -118,7 +136,7 @@ export interface UpdateNominationRequest {
 export interface ReviewCandidateRequest {
     candidateId: number;
     approved: boolean;
-    reviewComments?: string;
+    rejectionReason?: string | null;
 }
 
 // ============================================================================

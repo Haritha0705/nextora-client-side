@@ -27,12 +27,13 @@ const MotionCard = motion.create(Card);
 
 const STATUS_CONFIG: Record<ElectionStatus, { label: string; color: string; icon: React.ReactNode }> = {
     DRAFT: { label: 'Draft', color: '#6B7280', icon: <BallotIcon sx={{ fontSize: 14 }} /> },
-    NOMINATIONS_OPEN: { label: 'Nominations Open', color: '#F59E0B', icon: <AssignmentIndIcon sx={{ fontSize: 14 }} /> },
-    NOMINATIONS_CLOSED: { label: 'Nominations Closed', color: '#8B5CF6', icon: <AssignmentIndIcon sx={{ fontSize: 14 }} /> },
+    NOMINATION_OPEN: { label: 'Nominations Open', color: '#F59E0B', icon: <AssignmentIndIcon sx={{ fontSize: 14 }} /> },
+    NOMINATION_CLOSED: { label: 'Nominations Closed', color: '#8B5CF6', icon: <AssignmentIndIcon sx={{ fontSize: 14 }} /> },
     VOTING_OPEN: { label: 'Voting Open', color: '#10B981', icon: <HowToVoteIcon sx={{ fontSize: 14 }} /> },
     VOTING_CLOSED: { label: 'Voting Closed', color: '#3B82F6', icon: <HowToVoteIcon sx={{ fontSize: 14 }} /> },
     RESULTS_PUBLISHED: { label: 'Results Published', color: '#EC4899', icon: <EmojiEventsIcon sx={{ fontSize: 14 }} /> },
     CANCELLED: { label: 'Cancelled', color: '#EF4444', icon: <CancelIcon sx={{ fontSize: 14 }} /> },
+    ARCHIVED: { label: 'Archived', color: '#9CA3AF', icon: <BallotIcon sx={{ fontSize: 14 }} /> },
 };
 
 function ElectionCard({ election, onClick }: { election: ElectionResponse; onClick: () => void }) {

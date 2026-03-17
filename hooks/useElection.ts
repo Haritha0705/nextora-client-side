@@ -66,9 +66,8 @@ import {
     verifyVoteAsync,
     fetchElectionResults,
     fetchLiveVoteCount,
-    fetchClubElections,
-    fetchClubActiveElections,
     // Admin
+    adminFetchAllElections,
     adminForceOpenNominationsAsync,
     adminForceCloseNominationsAsync,
     adminForceOpenVotingAsync,
@@ -84,6 +83,7 @@ import {
     adminFetchStatistics,
     adminFetchStatisticsSummary,
     adminResetVotesAsync,
+    adminProcessStatusUpdatesAsync,
     // Actions
     clearElectionError,
     clearElectionSuccess,
@@ -179,26 +179,24 @@ export function useElection() {
     const loadResults = useCallback((electionId: number) => dispatch(fetchElectionResults(electionId)), [dispatch]);
     const loadLiveVoteCount = useCallback((electionId: number) => dispatch(fetchLiveVoteCount(electionId)), [dispatch]);
 
-    // ── Club-Scoped ──
-    const loadClubElections = useCallback((clubId: number, params?: ElectionPaginationParams) => dispatch(fetchClubElections({ clubId, params })), [dispatch]);
-    const loadClubActiveElections = useCallback((clubId: number, params?: ElectionPaginationParams) => dispatch(fetchClubActiveElections({ clubId, params })), [dispatch]);
-
     // ── Admin ──
+    const adminLoadAllElections = useCallback((params: ElectionPaginationParams = {}) => dispatch(adminFetchAllElections(params)), [dispatch]);
     const adminForceOpenNominations = useCallback((id: number) => dispatch(adminForceOpenNominationsAsync(id)), [dispatch]);
     const adminForceCloseNominations = useCallback((id: number) => dispatch(adminForceCloseNominationsAsync(id)), [dispatch]);
     const adminForceOpenVoting = useCallback((id: number) => dispatch(adminForceOpenVotingAsync(id)), [dispatch]);
     const adminForceCloseVoting = useCallback((id: number) => dispatch(adminForceCloseVotingAsync(id)), [dispatch]);
     const adminForcePublishResults = useCallback((id: number) => dispatch(adminForcePublishResultsAsync(id)), [dispatch]);
-    const adminForceCancel = useCallback((id: number, data: CancelElectionRequest) => dispatch(adminForceCancelAsync({ id, data })), [dispatch]);
-    const adminGetCandidates = useCallback((electionId: number) => dispatch(adminGetCandidatesAsync(electionId)), [dispatch]);
+    const adminForceCancel = useCallback((id: number, reason: string) => dispatch(adminForceCancelAsync({ id, reason })), [dispatch]);
+    const adminGetCandidates = useCallback((electionId: number, params?: ElectionPaginationParams) => dispatch(adminGetCandidatesAsync({ electionId, params })), [dispatch]);
     const adminForceApproveCandidate = useCallback((electionId: number, candidateId: number) => dispatch(adminForceApproveCandidateAsync({ electionId, candidateId })), [dispatch]);
-    const adminForceRejectCandidate = useCallback((electionId: number, candidateId: number) => dispatch(adminForceRejectCandidateAsync({ electionId, candidateId })), [dispatch]);
-    const adminDisqualifyCandidate = useCallback((electionId: number, candidateId: number) => dispatch(adminDisqualifyCandidateAsync({ electionId, candidateId })), [dispatch]);
+    const adminForceRejectCandidate = useCallback((electionId: number, candidateId: number, reason?: string) => dispatch(adminForceRejectCandidateAsync({ electionId, candidateId, reason })), [dispatch]);
+    const adminDisqualifyCandidate = useCallback((electionId: number, candidateId: number, reason?: string) => dispatch(adminDisqualifyCandidateAsync({ electionId, candidateId, reason })), [dispatch]);
     const adminGetLiveVotes = useCallback((electionId: number) => dispatch(adminGetLiveVotesAsync(electionId)), [dispatch]);
     const adminPermanentDelete = useCallback((electionId: number) => dispatch(adminPermanentDeleteAsync(electionId)), [dispatch]);
     const adminLoadStatistics = useCallback(() => dispatch(adminFetchStatistics()), [dispatch]);
     const adminLoadStatisticsSummary = useCallback(() => dispatch(adminFetchStatisticsSummary()), [dispatch]);
     const adminResetVotes = useCallback((electionId: number) => dispatch(adminResetVotesAsync(electionId)), [dispatch]);
+    const adminProcessStatusUpdates = useCallback(() => dispatch(adminProcessStatusUpdatesAsync()), [dispatch]);
 
     // ── Utility ──
     const clearError = useCallback(() => dispatch(clearElectionError()), [dispatch]);
@@ -234,15 +232,15 @@ export function useElection() {
         castVote, checkHasVoted, verifyVote,
         // Results
         loadResults, loadLiveVoteCount,
-        // Club-Scoped
-        loadClubElections, loadClubActiveElections,
         // Admin
+        adminLoadAllElections,
         adminForceOpenNominations, adminForceCloseNominations,
         adminForceOpenVoting, adminForceCloseVoting,
         adminForcePublishResults, adminForceCancel,
         adminGetCandidates, adminForceApproveCandidate, adminForceRejectCandidate,
         adminDisqualifyCandidate, adminGetLiveVotes, adminPermanentDelete,
         adminLoadStatistics, adminLoadStatisticsSummary, adminResetVotes,
+        adminProcessStatusUpdates,
         // Utility
         clearError, clearSuccess, resetSelectedElection, resetCandidates, resetResults, resetVoteState,
     };

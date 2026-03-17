@@ -28,24 +28,25 @@ interface ElectionCardProps {
 }
 
 const STATUS_CONFIG: Record<ElectionStatus, { label: string; color: 'default' | 'primary' | 'success' | 'warning' | 'error' | 'info'; icon: string }> = {
-    UPCOMING: { label: 'Upcoming', color: 'info', icon: '🗓️' },
-    NOMINATIONS_OPEN: { label: 'Nominations Open', color: 'warning', icon: '📝' },
-    NOMINATIONS_CLOSED: { label: 'Nominations Closed', color: 'default', icon: '📋' },
+    DRAFT: { label: 'Draft', color: 'default', icon: '📄' },
+    NOMINATION_OPEN: { label: 'Nominations Open', color: 'warning', icon: '📝' },
+    NOMINATION_CLOSED: { label: 'Nominations Closed', color: 'default', icon: '📋' },
     VOTING_OPEN: { label: 'Voting Open', color: 'success', icon: '🗳️' },
     VOTING_CLOSED: { label: 'Voting Closed', color: 'default', icon: '🔒' },
     RESULTS_PUBLISHED: { label: 'Results Published', color: 'primary', icon: '🏆' },
     CANCELLED: { label: 'Cancelled', color: 'error', icon: '❌' },
+    ARCHIVED: { label: 'Archived', color: 'default', icon: '🗄️' },
 };
 
 export function ElectionCard({ election, onClick, index = 0 }: ElectionCardProps) {
     const theme = useTheme();
     const config = STATUS_CONFIG[election.status] || { label: election.status, color: 'default' as const, icon: '📋' };
-    const isActive = election.status === 'VOTING_OPEN' || election.status === 'NOMINATIONS_OPEN';
+    const isActive = election.status === 'VOTING_OPEN' || election.status === 'NOMINATION_OPEN';
 
     const timeInfo = useMemo(() => {
         const now = new Date();
-        const votingStart = new Date(election.votingStartDate);
-        const votingEnd = new Date(election.votingEndDate);
+        const votingStart = new Date(election.votingStartTime);
+        const votingEnd = new Date(election.votingEndTime);
 
         if (election.status === 'VOTING_OPEN') {
             const diff = votingEnd.getTime() - now.getTime();
@@ -56,7 +57,7 @@ export function ElectionCard({ election, onClick, index = 0 }: ElectionCardProps
             }
             return 'Closing soon';
         }
-        if (election.status === 'UPCOMING' || election.status === 'NOMINATIONS_OPEN') {
+        if (election.status === 'DRAFT' || election.status === 'NOMINATION_OPEN') {
             const diff = votingStart.getTime() - now.getTime();
             const days = Math.floor(diff / (1000 * 60 * 60 * 24));
             if (diff > 0) return `Voting starts in ${days}d`;
@@ -68,8 +69,8 @@ export function ElectionCard({ election, onClick, index = 0 }: ElectionCardProps
     const progress = useMemo(() => {
         if (election.status !== 'VOTING_OPEN') return 0;
         const now = new Date().getTime();
-        const start = new Date(election.votingStartDate).getTime();
-        const end = new Date(election.votingEndDate).getTime();
+        const start = new Date(election.votingStartTime).getTime();
+        const end = new Date(election.votingEndTime).getTime();
         return Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
     }, [election]);
 
@@ -221,12 +222,12 @@ export function ElectionCard({ election, onClick, index = 0 }: ElectionCardProps
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <CalendarTodayIcon sx={{ fontSize: 13, color: 'text.disabled' }} />
                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
-                            {new Date(election.votingStartDate).toLocaleDateString('en-US', {
+                            {new Date(election.votingStartTime).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                             })}
                             {' – '}
-                            {new Date(election.votingEndDate).toLocaleDateString('en-US', {
+                            {new Date(election.votingEndTime).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric',

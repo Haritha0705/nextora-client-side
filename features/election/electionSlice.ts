@@ -370,6 +370,14 @@ export const fetchLiveVoteCount = createAsyncThunk(
 // Async Thunks - Admin
 // ============================================================================
 
+export const adminFetchAllElections = createAsyncThunk(
+    'election/adminFetchAll',
+    async (params: ElectionPaginationParams, { rejectWithValue }) => {
+        try { return await electionServices.adminGetAllElections(params); }
+        catch (error) { return rejectWithValue(getErrorMessage(error, 'Failed to fetch elections')); }
+    }
+);
+
 export const adminForceOpenNominationsAsync = createAsyncThunk(
     'election/adminForceOpenNom',
     async (id: number, { rejectWithValue }) => {
@@ -407,15 +415,15 @@ export const adminForcePublishResultsAsync = createAsyncThunk(
 );
 export const adminForceCancelAsync = createAsyncThunk(
     'election/adminForceCancel',
-    async ({ id, data }: { id: number; data: CancelElectionRequest }, { rejectWithValue }) => {
-        try { await electionServices.adminForceCancelElection(id, data); return id; }
+    async ({ id, reason }: { id: number; reason: string }, { rejectWithValue }) => {
+        try { await electionServices.adminForceCancelElection(id, reason); return id; }
         catch (error) { return rejectWithValue(getErrorMessage(error, 'Failed')); }
     }
 );
 export const adminGetCandidatesAsync = createAsyncThunk(
     'election/adminGetCandidates',
-    async (electionId: number, { rejectWithValue }) => {
-        try { return await electionServices.adminGetCandidates(electionId); }
+    async ({ electionId, params }: { electionId: number; params?: ElectionPaginationParams }, { rejectWithValue }) => {
+        try { return await electionServices.adminGetCandidates(electionId, params); }
         catch (error) { return rejectWithValue(getErrorMessage(error, 'Failed')); }
     }
 );
@@ -428,15 +436,15 @@ export const adminForceApproveCandidateAsync = createAsyncThunk(
 );
 export const adminForceRejectCandidateAsync = createAsyncThunk(
     'election/adminForceReject',
-    async ({ electionId, candidateId }: { electionId: number; candidateId: number }, { rejectWithValue }) => {
-        try { await electionServices.adminForceRejectCandidate(electionId, candidateId); return candidateId; }
+    async ({ electionId, candidateId, reason }: { electionId: number; candidateId: number; reason?: string }, { rejectWithValue }) => {
+        try { await electionServices.adminForceRejectCandidate(electionId, candidateId, reason); return candidateId; }
         catch (error) { return rejectWithValue(getErrorMessage(error, 'Failed')); }
     }
 );
 export const adminDisqualifyCandidateAsync = createAsyncThunk(
     'election/adminDisqualify',
-    async ({ electionId, candidateId }: { electionId: number; candidateId: number }, { rejectWithValue }) => {
-        try { await electionServices.adminDisqualifyCandidate(electionId, candidateId); return candidateId; }
+    async ({ electionId, candidateId, reason }: { electionId: number; candidateId: number; reason?: string }, { rejectWithValue }) => {
+        try { await electionServices.adminDisqualifyCandidate(electionId, candidateId, reason); return candidateId; }
         catch (error) { return rejectWithValue(getErrorMessage(error, 'Failed')); }
     }
 );
@@ -475,19 +483,10 @@ export const adminResetVotesAsync = createAsyncThunk(
         catch (error) { return rejectWithValue(getErrorMessage(error, 'Failed')); }
     }
 );
-
-// Club-scoped
-export const fetchClubElections = createAsyncThunk(
-    'election/fetchClubElections',
-    async ({ clubId, params }: { clubId: number; params?: ElectionPaginationParams }, { rejectWithValue }) => {
-        try { return await electionServices.getClubElections(clubId, params); }
-        catch (error) { return rejectWithValue(getErrorMessage(error, 'Failed')); }
-    }
-);
-export const fetchClubActiveElections = createAsyncThunk(
-    'election/fetchClubActive',
-    async ({ clubId, params }: { clubId: number; params?: ElectionPaginationParams }, { rejectWithValue }) => {
-        try { return await electionServices.getClubActiveElections(clubId, params); }
+export const adminProcessStatusUpdatesAsync = createAsyncThunk(
+    'election/adminProcessStatus',
+    async (_, { rejectWithValue }) => {
+        try { await electionServices.adminProcessStatusUpdates(); }
         catch (error) { return rejectWithValue(getErrorMessage(error, 'Failed')); }
     }
 );
@@ -523,12 +522,9 @@ const electionSlice = createSlice({
             .addCase(searchElectionsAsync.pending, (s) => { s.isLoading = true; s.error = null; })
             .addCase(searchElectionsAsync.fulfilled, (s, a) => { s.isLoading = false; s.elections = a.payload.data.content; s.totalElections = a.payload.data.totalElements; })
             .addCase(searchElectionsAsync.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as string; })
-            .addCase(fetchClubElections.pending, (s) => { s.isLoading = true; s.error = null; })
-            .addCase(fetchClubElections.fulfilled, (s, a) => { s.isLoading = false; s.elections = a.payload.data.content; s.totalElections = a.payload.data.totalElements; })
-            .addCase(fetchClubElections.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as string; })
-            .addCase(fetchClubActiveElections.pending, (s) => { s.isLoading = true; })
-            .addCase(fetchClubActiveElections.fulfilled, (s, a) => { s.isLoading = false; s.elections = a.payload.data.content; s.totalElections = a.payload.data.totalElements; })
-            .addCase(fetchClubActiveElections.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as string; });
+            .addCase(adminFetchAllElections.pending, (s) => { s.isLoading = true; s.error = null; })
+            .addCase(adminFetchAllElections.fulfilled, (s, a) => { s.isLoading = false; s.elections = a.payload.data.content; s.totalElections = a.payload.data.totalElements; })
+            .addCase(adminFetchAllElections.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as string; });
 
         // === Single Election ===
         builder
@@ -587,7 +583,8 @@ const electionSlice = createSlice({
             .addCase(adminPermanentDeleteAsync.pending, (s) => { s.isDeleting = true; s.error = null; })
             .addCase(adminPermanentDeleteAsync.fulfilled, (s, a) => { s.isDeleting = false; s.elections = s.elections.filter(e => e.id !== a.payload); s.successMessage = 'Election permanently deleted'; })
             .addCase(adminPermanentDeleteAsync.rejected, (s, a) => { s.isDeleting = false; s.error = a.payload as string; })
-            .addCase(adminResetVotesAsync.pending, lifecyclePending).addCase(adminResetVotesAsync.fulfilled, (s) => lifecycleFulfilled(s, 'Votes reset')).addCase(adminResetVotesAsync.rejected, lifecycleRejected);
+            .addCase(adminResetVotesAsync.pending, lifecyclePending).addCase(adminResetVotesAsync.fulfilled, (s) => lifecycleFulfilled(s, 'Votes reset')).addCase(adminResetVotesAsync.rejected, lifecycleRejected)
+            .addCase(adminProcessStatusUpdatesAsync.pending, lifecyclePending).addCase(adminProcessStatusUpdatesAsync.fulfilled, (s) => lifecycleFulfilled(s, 'Status updates processed')).addCase(adminProcessStatusUpdatesAsync.rejected, lifecycleRejected);
 
         // === Candidates ===
         builder
